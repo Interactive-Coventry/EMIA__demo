@@ -157,8 +157,7 @@ cython_debug/
 .idea/
 
 # Custom
-config.ini
-
+# config.ini
 data/openweathermap/*
 data/datamall/*
 .streamlit/secrets.toml
