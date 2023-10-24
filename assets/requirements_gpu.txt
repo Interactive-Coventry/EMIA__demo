@@ -1,3 +1,6 @@
+
+boto3==1.28.63
+botocore==1.31.63
 efficientnet_pytorch==0.7.1
 geopandas==0.13.0
 joblib==1.2.0
@@ -29,7 +32,7 @@ scipy==1.11.3
 setuptools==65.5.1
 tifffile==2023.9.26
 tqdm==4.66.1
-urllib3==2.0.6
+urllib3
 timm==0.9.7
 tensorboard==2.10.1
 
@@ -50,3 +53,13 @@ lightning==2.0.2
 
 # Emia Utils
 httplib2==0.22.0
+pytz~=2023.3.post1
+schedule==1.2.1
+
+# Database
+sqlalchemy==2.0.22
+psycopg2-binary==2.9.9
+
+# Custom libs
+libs @ git+https://github.com/foxelas/libs@v1
+EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
