@@ -1,5 +1,3 @@
-import logging
-
 import streamlit as st
 
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
@@ -13,6 +11,7 @@ init_bar.empty()
 
 from app.dashcam_view import setup_dashcam_view
 from app.stream_view import setup_stream_view
+from app.cctv_view import setup_cctv_view
 from app.test_view import setup_test_view
 from app.static_camera_view import setup_expressway_camera_view
 from app.provide_insights import IS_TEST
@@ -29,8 +28,9 @@ if IS_TEST:
                   }
 else:
     menu_items = {
-        "Expressway Camera": "NotImplemented",
-        "Dashcam": "NotImplemented",
+        "Expressway Camera": "Fetch images from expressway cameras API",
+        "Dashcam": "Fetch video stream from dashcam",
+        "CCTV": "Fetch video stream from CCTV",
     }
 
 main_menu_radio_btn = st.sidebar.radio("Select input source", menu_items.keys(), index=0, key="input_source", )
@@ -62,3 +62,7 @@ elif main_menu_radio_btn == "Dashcam":
 elif main_menu_radio_btn == "Livestream":
     reset_values()
     setup_stream_view()
+
+elif main_menu_radio_btn == "CCTV":
+    reset_values()
+    setup_cctv_view()

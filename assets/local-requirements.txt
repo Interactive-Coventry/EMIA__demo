@@ -1,0 +1,2 @@
+libs @ git+https://github.com/foxelas/libs@v1
+EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
