@@ -164,3 +164,4 @@ data/datamall/*
 .streamlit/secrets.toml
 gpu-39-venv/*
 venv/*
+custom_models/*
