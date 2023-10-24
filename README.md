@@ -15,10 +15,9 @@ pinned: false
 
 - Base repo: [Github | Interactive-Coventry/EMIA__demo](https://github.com/Interactive-Coventry/EMIA__demo/)
 
-  - To run with Gradio:
-    - Run in a terminal with `python gradio-app.py` and open `http://localhost:7860` in your browser.
+  - Run in a terminal with `python app.py` and open `http://localhost:7860` in your browser.
   
-    - Alternatively, run with `gradio gradio-app.py` to start a dev server with hot reloading enabled.
+  - Alternatively, run with `gradio app.py` to start a dev server with hot reloading enabled.
     
 ![demo_1.png](assets/demo_1.png)
 
