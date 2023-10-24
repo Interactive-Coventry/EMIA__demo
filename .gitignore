@@ -163,4 +163,5 @@ data/datamall/*
 .streamlit/secrets.toml
 gpu-39-venv/*
 venv/*
-custom_models/*
+# custom_models/*
+assets/pgadmin_sql_queries.txt
