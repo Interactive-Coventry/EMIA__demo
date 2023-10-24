@@ -35,7 +35,6 @@ logger = logging.getLogger("app.provide_insights")
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
 MODELS_DIR = core_utils.models_dir
-results_dir = core_utils.settings["DIRECTORY"]["results_dir"]
 target_tz = pytz.timezone(core_utils.settings["RUN"]["timezone"])
 HISTORY_LENGTH = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_history_length"])
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
@@ -76,9 +75,6 @@ def get_relevant_data(full_filename, delete_previous_results=False, history_leng
     logger.info("\n\n------------------Start processing------------------")
 
     image_file, folder, filepath = split_filename_folder(full_filename)
-    if delete_previous_results and exists(results_dir):
-        shutil.rmtree(results_dir)
-
     logger.debug(f"Reading image from {full_filename}.")
     logger.debug(f"Path: {filepath}\nFolder: {folder}")
 
