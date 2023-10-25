@@ -13,6 +13,7 @@ import logging
 logger = logging.getLogger("app.common")
 
 conn = st.experimental_connection("postgresql", type="sql")
+#conn = database_utils.engine_connect()
 
 def append_weather_data_to_database(weather_df):
     if conn is not None:
