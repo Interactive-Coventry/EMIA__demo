@@ -18,10 +18,10 @@ def init_connection():
     import socket
     hostname = socket.gethostname()
     IPAddr = socket.gethostbyname(hostname)
-    print("Your Computer Name is:" + hostname)
-    print("Your Computer IP Address is:" + IPAddr)
+    logger.info(f"Your Computer Name is: {hostname}")
+    logger.info(f"Your Computer IP Address is:{IPAddr}")
     v = socket.getaddrinfo(hostname, 5432)
-    print(f"Your Computer Addr Info is:{v}")
+    logger.info(f"Your Computer Addr Info is:{v}")
 
     conn_ = connect()
     logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")
