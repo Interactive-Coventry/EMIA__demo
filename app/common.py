@@ -15,9 +15,17 @@ logger = logging.getLogger("app.common")
 
 @st.cache_resource
 def init_connection():
+    import socket
+    hostname = socket.gethostname()
+    IPAddr = socket.gethostbyname(hostname)
+    print("Your Computer Name is:" + hostname)
+    print("Your Computer IP Address is:" + IPAddr)
+    v = socket.getaddrinfo(hostname, 5432)
+    print(f"Your Computer Addr Info is:{v}")
+
     conn_ = connect()
+    logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")
     check_connection(conn_)
-    logger.debug(f"Streamlit connect: DB Experimental connection is {conn_}")
     return conn_
 
 
