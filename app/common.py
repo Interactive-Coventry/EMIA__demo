@@ -13,8 +13,10 @@ import logging
 logger = logging.getLogger("app.common")
 
 conn = st.experimental_connection("postgresql", type="sql")
-logger.info(f"DB Experimental connection is {conn}")
-#conn = database_utils.engine_connect()
+logger.info(f"Streamlit connect: DB Experimental connection is {conn}")
+conn = database_utils.engine_connect()
+logger.info(f"Local connect: DB Experimental connection is {conn}")
+
 
 def append_weather_data_to_database(weather_df):
     if conn is not None:
