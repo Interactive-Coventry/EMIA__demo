@@ -1,25 +1,19 @@
 import warnings
-
-from emia_utils import database_utils
-from emia_utils.process_utils import make_vehicle_counts_df
-
-from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database, \
-    append_weather_data_to_database
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import time
 from os.path import join as pathjoin
 import logging
 from os import sep
-import shutil
-from os.path import exists
 import json
 import cv2
 import pytz
 import streamlit as st
 import pandas as pd
 from PIL import Image
+
+from emia_utils.process_utils import make_vehicle_counts_df
+from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
 
 import libs.foxutils.utils.core_utils as core_utils
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
@@ -216,7 +210,7 @@ def process_file(full_filename, delete_previous_results, history_length):
 
     return results_dict
 
-
+#@st.cache_data
 def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
     if current_date is None:
         current_date = core_utils.get_current_datetime(tz=target_tz)
@@ -257,7 +251,6 @@ def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
         "vehicle_forecast": vehicle_prediction_str,
     }
     return outputs
-
 
 def get_insights(mode="files", **kwargs):
     if mode == "files":
