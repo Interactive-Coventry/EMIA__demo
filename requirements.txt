@@ -75,5 +75,5 @@ EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
 #git+https://github.com/streamlit/files-connection
 #protobuf==3.19.5
 google-cloud-core==2.3.3
-google-cloud-storage=2.12.0
+google-cloud-storage==2.12.0
 google-cloud-firestore==2.13.0
