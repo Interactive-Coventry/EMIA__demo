@@ -69,3 +69,8 @@ psycopg2-binary==2.9.9
 # Custom libs
 libs @ git+https://github.com/foxelas/libs@v1
 EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
+
+# Firebase
+#gcsfs==2023.9.2
+#git+https://github.com/streamlit/files-connection
+protobuf==3.19.5
