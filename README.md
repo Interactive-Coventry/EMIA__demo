@@ -23,8 +23,8 @@ pinned: false
 ```
 $ streamlit run .\streamlit-app.py
 ```
-![demo_1.png](assets/demo_1.png)
-![demo_2.png](assets/demo_2.png)
+![demo_1.png](demo_1.png)
+![demo_2.png](demo_2.png)
 
 ## How to run from terminal with CLI (command line interface) tool
 - Get insights for single image using history <br>
