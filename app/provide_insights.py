@@ -210,8 +210,7 @@ def process_file(full_filename, delete_previous_results, history_length):
 
     return results_dict
 
-#@st.cache_data
-def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
+def get_processing_results(img, img_buffer,current_date=None, camera_id=None):
     if current_date is None:
         current_date = core_utils.get_current_datetime(tz=target_tz)
     if camera_id is None:
