@@ -1,4 +1,5 @@
 import warnings
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import time
@@ -38,7 +39,6 @@ RUN_PER_FRAME = True
 IS_TEST = bool(eval(core_utils.settings["RUN"]["is_test"]))
 logger.debug(f"Is test: {IS_TEST}")
 logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
-
 
 #############Load models#####
 logger.info("\n\n------------------Load Models------------------")
@@ -210,7 +210,8 @@ def process_file(full_filename, delete_previous_results, history_length):
 
     return results_dict
 
-def get_processing_results(img, img_buffer,current_date=None, camera_id=None):
+
+def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
     if current_date is None:
         current_date = core_utils.get_current_datetime(tz=target_tz)
     if camera_id is None:
@@ -250,6 +251,7 @@ def get_processing_results(img, img_buffer,current_date=None, camera_id=None):
         "vehicle_forecast": vehicle_prediction_str,
     }
     return outputs
+
 
 def get_insights(mode="files", **kwargs):
     if mode == "files":
