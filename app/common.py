@@ -13,15 +13,13 @@ from utils.settings import DEFAULT_IMAGE_FILE, DEFAULT_DATASET_DIR
 import logging
 logger = logging.getLogger("app.common")
 
-@st.cache_resource
+# @st.cache_resource
 def init_connection():
     import socket
     hostname = socket.gethostname()
     IPAddr = socket.gethostbyname(hostname)
     logger.info(f"Your Computer Name is: {hostname}")
     logger.info(f"Your Computer IP Address is:{IPAddr}")
-    v = socket.getaddrinfo(hostname, 5432)
-    logger.info(f"Your Computer Addr Info is:{v}")
 
     conn_ = connect()
     logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")
