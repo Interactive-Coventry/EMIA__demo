@@ -1,1 +1,1 @@
-D:\git\github\EMIA-demo\data\test\dashcam\greece_1.flv
+data\test\dashcam\greece_1.flv

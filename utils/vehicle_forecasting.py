@@ -34,11 +34,16 @@ def load_vehicle_forecasting_model():
     return vehicle_pred_model, vehicle_pred_scaler
 
 
+BASE_COLUMNS = ["weather", "description", "weather_id", "temp", "feels_like", "pressure", "humidity", "wind_speed",
+                "wind_deg", "clouds_all", "visibility", "bicycle", "bus", "car", "motorcycle", "person", "truck",
+                "total_pedestrians", "total_vehicles"]
+
 def forecast_vehicles(vehicle_pred_model, vehicle_pred_scaler, in_df, history_length):
     weather_columns = ["temp", "humidity", "wind_speed", "clouds_all", "visibility", "weather_id"]
     target_column = "total_vehicles"
 
     out_df = in_df.copy()
+    out_df = out_df[BASE_COLUMNS]
     _, out_df = trainfunc.apply_scaling(out_df, vehicle_pred_scaler, has_fit=False)
     out_df = out_df[weather_columns + [target_column]]
 
