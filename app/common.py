@@ -128,7 +128,12 @@ def present_results(container_placeholder, outputs):
 
             st.markdown("##### Anomaly Label:")
             for k, v in outputs["anomaly_detection_label"].items():
-                st.progress(v, text=k)
+                tt = k.split("(")[0]
+                break
+            st.markdown(tt)
+
+            #for k, v in outputs["anomaly_detection_label"].items():
+            #    st.progress(v, text=k)
 
         st.markdown("##### Detected Vehicles:")
         st.dataframe(outputs["vehicle_detection_df"], use_container_width=True)

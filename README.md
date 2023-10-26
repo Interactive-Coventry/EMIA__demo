@@ -43,3 +43,9 @@ $ streamlit run .\streamlit-app.py
     $ python run_emia.py analyze --help
     $ python run_emia.py test --help
 ```
+
+## For the config.ini file settings 
+
+- device: cpu or cuda
+- db_mode: local or streamlit or firebase
+- 

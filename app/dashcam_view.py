@@ -1,5 +1,6 @@
 from os.path import join as pathjoin
 import streamlit as st
+from libs.foxutils.utils import core_utils
 
 from . import provide_insights
 from .provide_insights import IS_TEST
@@ -32,7 +33,7 @@ def setup_dashcam_view():
         st.session_state.update_every_n_frames = 60
 
     if dashcam_source_btn == "Camera 2 (GR)": # Dashcam from greece
-        dashcam_url = pathjoin("data", "test", "dashcam", "sources.txt")
+        dashcam_url = pathjoin(core_utils.datasets_dir, "test", "dashcam", "sources.txt")
         st.session_state.stream_name = "test_GR"
         st.session_state.stream_url = dashcam_url
         st.session_state.update_every_n_frames = 5
