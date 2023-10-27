@@ -189,7 +189,7 @@ def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
         "clouds_all"]]
     weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temp",
                                  "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
-                                 "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"})
+                                 "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
     weather_info = weather_info.to_frame()
 
     outputs = {
