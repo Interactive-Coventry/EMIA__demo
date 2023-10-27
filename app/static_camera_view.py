@@ -56,6 +56,8 @@ def setup_expressway_camera_view():
     if "is_running" not in st.session_state:
         st.session_state.is_running = False
 
+    st.session_state.is_running = False
+
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:

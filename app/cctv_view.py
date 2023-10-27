@@ -4,6 +4,8 @@ from .common import present_results
 
 
 def setup_cctv_view():
+    st.session_state.is_running = False
+
     st.markdown("### Input from CCTV livestream")
 
     camera_choices = ["Camera 1 (JP)"]

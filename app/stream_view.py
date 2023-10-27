@@ -4,6 +4,8 @@ from . import provide_insights
 from .common import present_results
 
 def setup_stream_view():
+    st.session_state.is_running = False
+
     st.markdown("### Input from Youtube")
     youtube_url = "https://www.youtube.com/watch?v=8mqSJLPvLWg"
     livecam_url = "http://61.211.241.239/nphMotionJpeg?Resolution=320x240&Quality=Standard"

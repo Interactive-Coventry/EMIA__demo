@@ -1,5 +1,7 @@
+from datetime import timedelta
 from os.path import join as pathjoin
 
+import pandas as pd
 import streamlit as st
 from PIL import Image
 import libs.foxutils.utils.core_utils as core_utils
@@ -14,6 +16,13 @@ from utils.settings import DEFAULT_IMAGE_FILE, DEFAULT_DATASET_DIR
 
 import logging
 logger = logging.getLogger("app.common")
+
+HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
+HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
+
+SHOW_ANOMALY_LABEL = False
+SHOW_WEATHER_LABEL = False
+SHOW_VEHICLE_FORECAST_GRAPH = True
 
 @st.cache_resource
 def init_connection():
@@ -90,11 +99,13 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
                   ["camera_id", "=", database_utils.enclose_in_quotes(str(camera_id))]]
         params[-1].append(fetch_top)
         df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=conn)
+
+    latest_weather_info = df_weather.iloc[0].copy()
     df_features = prepare_features_for_vehicle_counts(df_vehicles, df_weather, dropna=True,
                                                       include_weather_description=True)
     df_features = df_features.iloc[-history_length:]
     logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
-    return df_features
+    return df_features, latest_weather_info
 
 
 def get_target_image(camera_selection, image_file=None):
@@ -118,24 +129,54 @@ def present_results(container_placeholder, outputs):
             st.markdown("##### Object Detection:")
             st.image(outputs["vehicle_detection_img"], use_column_width=True)
 
-            st.markdown("##### Weather Label:")
-            for k, v in outputs["weather_detection_label"].items():
-                st.progress(v, text=k)
+            if SHOW_WEATHER_LABEL:
+                st.markdown("##### Weather Label:")
+                for k, v in outputs["weather_detection_label"].items():
+                    st.progress(v, text=k)
 
         with col4:
             st.markdown("##### Anomaly Heatmap:")
             st.image(outputs["anomaly_detection_img"], use_column_width=True)
 
-            st.markdown("##### Anomaly Label:")
-            for k, v in outputs["anomaly_detection_label"].items():
-                tt = k.split("(")[0]
-                break
-            st.markdown(tt)
+            if SHOW_ANOMALY_LABEL:
+                st.markdown("##### Anomaly Label:")
+                show_general_label = True
+                if show_general_label:
+                    for k, v in outputs["anomaly_detection_label"].items():
+                        tt = k.split("(")[0]
+                        break
+                    st.markdown(tt)
+                else:
+                    for k, v in outputs["anomaly_detection_label"].items():
+                        st.progress(v, text=k)
 
-            #for k, v in outputs["anomaly_detection_label"].items():
-            #    st.progress(v, text=k)
+        st.markdown("##### Weather Information:")
+        weather_info = outputs["weather_info"].transpose()
+        st.dataframe(weather_info, use_container_width=True)
 
         st.markdown("##### Detected Vehicles:")
         st.dataframe(outputs["vehicle_detection_df"], use_container_width=True)
+
         st.markdown("##### Vehicle Forecasting:")
-        st.markdown(outputs["vehicle_forecast"])
+        if SHOW_VEHICLE_FORECAST_GRAPH:
+            vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
+            vf_predictions = outputs["vehicle_forecast"]["predictions"]
+            vf_df = vf_df[["total_vehicles"]]
+            vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
+            vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
+            pred_datetime = vf_df.index[-1] + timedelta(minutes=HISTORY_STEP)
+            if HISTORY_STEP_UNIT != "minutes":
+                raise NotImplementedError("Only minutes are supported for now.")
+            pred_value = round(vf_predictions[0])
+            target_val = vf_df.iloc[len(vf_df)-1]
+            vf_df.loc[vf_df.index[len(vf_df)-1]] = [target_val[0], target_val[0]]
+            vf_df.loc[pred_datetime, :] = [None, pred_value]
+            st.line_chart(vf_df, use_container_width=True)
+        else:
+            vf_df = outputs["vehicle_forecast"]["previous_counts"]
+            vf_predictions = outputs["vehicle_forecast"]["predictions"]
+            vehicle_prediction_str = "-Previous Counts: [" \
+                                     + ", ".join([str(round(x)) for x in vf_df["total_vehicles"].values]) \
+                                     + "]\n\n-Predicted Count (next 5min): " + str(round(vf_predictions[0]))
+
+            st.markdown(vehicle_prediction_str)

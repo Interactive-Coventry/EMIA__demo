@@ -41,28 +41,19 @@ main_menu_radio_btn = st.sidebar.radio("Select input source", menu_items.keys(),
 def reset_values():
     if "is_running" not in st.session_state:
         st.session_state.is_running = False
-    st.session_state.is_running = False
 
-
-if "is_running" not in st.session_state:
-    st.session_state.is_running = False
 
 if main_menu_radio_btn == "Test":
-    reset_values()
     setup_test_view()
 
 elif main_menu_radio_btn == "Expressway Camera":
-    reset_values()
     setup_expressway_camera_view()
 
 elif main_menu_radio_btn == "Dashcam":
-    reset_values()
     setup_dashcam_view()
 
 elif main_menu_radio_btn == "Livestream":
-    reset_values()
     setup_stream_view()
 
 elif main_menu_radio_btn == "CCTV":
-    reset_values()
     setup_cctv_view()

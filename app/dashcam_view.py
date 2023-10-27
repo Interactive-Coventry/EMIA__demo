@@ -1,6 +1,11 @@
 from os.path import join as pathjoin
+
+import pandas as pd
 import streamlit as st
+from streamlit_folium import st_folium
+
 from libs.foxutils.utils import core_utils
+from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 
 from . import provide_insights
 from .provide_insights import IS_TEST
@@ -15,7 +20,6 @@ def setup_dashcam_view():
     else:
         camera_choices = ["Camera 1 (SG)", "Camera 2 (GR)", "Camera 3 (UK)"]
 
-    dashcam_source_btn = st.radio("Select input source", camera_choices, index=0, key="dashcam_source")
 
     if "stream_url" not in st.session_state:
         st.session_state.stream_url = ""
@@ -26,23 +30,41 @@ def setup_dashcam_view():
     if "stream_name" not in st.session_state:
         st.session_state.stream_name = ""
 
-    if dashcam_source_btn == "Camera 1 (SG)": # Youtube link
-        youtube_url = "https://www.youtube.com/watch?v=8mqSJLPvLWg"
-        st.session_state.stream_name = "test_SG"
-        st.session_state.stream_url = youtube_url
-        st.session_state.update_every_n_frames = 60
+    st.session_state.is_running = False
 
-    if dashcam_source_btn == "Camera 2 (GR)": # Dashcam from greece
-        dashcam_url = pathjoin(core_utils.datasets_dir, "test", "dashcam", "sources.txt")
-        st.session_state.stream_name = "test_GR"
-        st.session_state.stream_url = dashcam_url
-        st.session_state.update_every_n_frames = 5
+    with st.container():
+        col1, col2 = st.columns(2)
 
-    if dashcam_source_btn == "Camera 3 (UK)": # Youtube link
-        youtube_url = "https://www.youtube.com/watch?v=CZuZ4RXl4Wg"
-        st.session_state.stream_name = "test_UK"
-        st.session_state.stream_url = youtube_url
-        st.session_state.update_every_n_frames = 20
+        with col1:
+            dashcam_source_btn = st.radio("Select input source", camera_choices, index=0, key="dashcam_source")
+            df_coord = pd.DataFrame({"ID": ["Camera 1 (SG)"], "Longitude": [103.8198], "Latitude": [1.300190]})
+
+            if dashcam_source_btn == "Camera 1 (SG)":  # Youtube link
+                youtube_url = "https://www.youtube.com/watch?v=8mqSJLPvLWg"
+                st.session_state.stream_name = "test_SG"
+                st.session_state.stream_url = youtube_url
+                st.session_state.update_every_n_frames = 60
+                df_coord = pd.DataFrame({"ID": ["Camera 1 (SG)"], "Longitude": [103.8198], "Latitude": [1.300190]})
+
+            if dashcam_source_btn == "Camera 2 (GR)":  # Dashcam from greece
+                dashcam_url = pathjoin(core_utils.datasets_dir, "test", "dashcam", "sources.txt")
+                st.session_state.stream_name = "test_GR"
+                st.session_state.stream_url = dashcam_url
+                st.session_state.update_every_n_frames = 5
+                df_coord = pd.DataFrame({"ID": ["Camera 2 (GR)"], "Longitude": [23.405626], "Latitude": [38.037139]})
+
+            if dashcam_source_btn == "Camera 3 (UK)":  # Youtube link
+                youtube_url = "https://www.youtube.com/watch?v=CZuZ4RXl4Wg"
+                st.session_state.stream_name = "test_UK"
+                st.session_state.stream_url = youtube_url
+                st.session_state.update_every_n_frames = 20
+                df_coord = pd.DataFrame({"ID": ["Camera  3 (UK)"], "Longitude": [-1.141297], "Latitude": [52.601009]})
+
+        with col2:
+            if st.checkbox("Show camera locations on map", value=False, key="plot_markers_on_map"):
+                center_coords = [df_coord.iloc[0]["Latitude"], df_coord.iloc[0]["Longitude"]]
+                m = plot_markers_on_map(center_coords, df_coord)
+                st_data = st_folium(m, height=300)
 
     exec_btn_placeholder = st.empty()
 
