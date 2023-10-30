@@ -29,13 +29,15 @@ def setup_cctv_view():
 
     exec_btn_placeholder = st.empty()
 
-    if st.session_state.stream_url is not None and exec_btn_placeholder.button("Start", key="start_btn"):
-        if exec_btn_placeholder.button("Stop", key="stop_btn"):
-            st.stop()
+    if not st.session_state.is_running:
+        if exec_btn_placeholder.button("Start", key="start_btn"):
+            st.session_state.is_running = True
+            if exec_btn_placeholder.button("Stop", key="stop_btn"):
+                st.session_state.is_running = False
 
-        provide_insights.get_insights(mode="stream",
-                                      stream_url=st.session_state.stream_url,
-                                      stream_name=st.session_state.stream_name,
-                                      present_results_func=present_results,
-                                      update_every_n_frames=st.session_state.update_every_n_frames)
+            provide_insights.get_insights(mode="stream",
+                                          stream_url=st.session_state.stream_url,
+                                          stream_name=st.session_state.stream_name,
+                                          present_results_func=present_results,
+                                          update_every_n_frames=st.session_state.update_every_n_frames)
 

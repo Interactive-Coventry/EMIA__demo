@@ -10,7 +10,6 @@ init_bar.progress(100, text="Finished initialization.")
 init_bar.empty()
 
 from app.dashcam_view import setup_dashcam_view
-from app.stream_view import setup_stream_view
 from app.cctv_view import setup_cctv_view
 from app.test_view import setup_test_view
 from app.static_camera_view import setup_expressway_camera_view
@@ -24,7 +23,6 @@ if IS_TEST:
     menu_items = {"Test": "Test",
                   "Expressway Camera": "NotImplemented",
                   "Dashcam": "NotImplemented",
-                  "Livestream": "Youtube, Livecam, etc.",
                   }
 else:
     menu_items = {
@@ -51,9 +49,6 @@ elif main_menu_radio_btn == "Expressway Camera":
 
 elif main_menu_radio_btn == "Dashcam":
     setup_dashcam_view()
-
-elif main_menu_radio_btn == "Livestream":
-    setup_stream_view()
 
 elif main_menu_radio_btn == "CCTV":
     setup_cctv_view()

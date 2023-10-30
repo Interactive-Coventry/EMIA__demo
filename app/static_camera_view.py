@@ -4,6 +4,7 @@ from os.path import join as pathjoin
 import pandas as pd
 import streamlit as st
 from schedule import every, repeat, run_pending
+from schedule import clear as clear_all_jobs
 import time
 
 from emia_utils import download_utils
@@ -13,6 +14,9 @@ from utils.map_utils import get_expressway_camera_info
 from . import provide_insights
 from .common import get_target_image, present_results, append_weather_data_to_database
 from .provide_insights import HISTORY_STEP, get_target_datetime
+
+import logging
+logger = logging.getLogger("app.static_camera_view")
 
 TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"
 
@@ -45,6 +49,11 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
     outputs = provide_insights.get_insights(mode="files", full_filename=target_file)
     present_results(results_container_placeholder, outputs)
 
+def clear_jobs():
+    clear_all_jobs()
+    st.session_state.is_running = False
+    logger.info(f"Terminated all schedulers.")
+
 
 def setup_expressway_camera_view():
     st.markdown("### Input from Expressway Camera")
@@ -54,7 +63,7 @@ def setup_expressway_camera_view():
                                       index=default_index, key="dashcam_source")
 
     if "is_running" not in st.session_state:
-        st.session_state.is_running = False
+        clear_jobs()
 
     st.session_state.is_running = False
 
@@ -64,7 +73,7 @@ def setup_expressway_camera_view():
         if exec_btn_placeholder.button("Fetch latest", key="start_btn"):
             st.session_state.is_running = True
             if exec_btn_placeholder.button("Stop", key="stop_btn"):
-                st.session_state.is_running = False
+                clear_jobs()
 
             target_camera_id = dashcam_source_btn
             savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
@@ -87,8 +96,7 @@ def setup_expressway_camera_view():
                 while st.session_state.is_running:
                     run_pending()
                     time.sleep(1)
-            except AttributeError: # st.session_state has no attribute "is_running". Did you forget to initialize it?
-                st.session_state.is_running = False
-                pass
+            except AttributeError as e:# st.session_state has no attribute "is_running". Did you forget to initialize it?
+                print(e)
 
 

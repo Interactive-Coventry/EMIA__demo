@@ -13,6 +13,8 @@ from .common import present_results
 
 
 def setup_dashcam_view():
+    st.session_state.is_running = False
+
     st.markdown("### Input from Dashcam")
 
     if IS_TEST:
@@ -30,7 +32,6 @@ def setup_dashcam_view():
     if "stream_name" not in st.session_state:
         st.session_state.stream_name = ""
 
-    st.session_state.is_running = False
 
     with st.container():
         col1, col2 = st.columns(2)
@@ -68,12 +69,14 @@ def setup_dashcam_view():
 
     exec_btn_placeholder = st.empty()
 
-    if st.session_state.stream_url is not None and exec_btn_placeholder.button("Start", key="start_btn"):
-        if exec_btn_placeholder.button("Stop", key="stop_btn"):
-            st.stop()
+    if not st.session_state.is_running:
+        if exec_btn_placeholder.button("Start", key="start_btn"):
+            st.session_state.is_running = True
+            if exec_btn_placeholder.button("Stop", key="stop_btn"):
+                st.session_state.is_running = False
 
-        provide_insights.get_insights(mode="stream",
-                                      stream_url=st.session_state.stream_url,
-                                      stream_name=st.session_state.stream_name,
-                                      present_results_func=present_results,
-                                      update_every_n_frames=st.session_state.update_every_n_frames)
+            provide_insights.get_insights(mode="stream",
+                                          stream_url=st.session_state.stream_url,
+                                          stream_name=st.session_state.stream_name,
+                                          present_results_func= lambda x, y: present_results(x, y, forecast_step=1),
+                                          update_every_n_frames=st.session_state.update_every_n_frames)

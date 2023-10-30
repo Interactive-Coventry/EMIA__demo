@@ -119,7 +119,7 @@ def get_target_image(camera_selection, image_file=None):
     return img, fig
 
 
-def present_results(container_placeholder, outputs):
+def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
     with container_placeholder.container():
         st.markdown("### Results")
         st.markdown(f"##### Current Datetime: {outputs['target_datetime'].strftime('%Y/%m/%d, %H:%M:%S')} "
@@ -155,16 +155,18 @@ def present_results(container_placeholder, outputs):
         st.dataframe(weather_info, use_container_width=True)
 
         st.markdown("##### Detected Vehicles:")
-        st.dataframe(outputs["vehicle_detection_df"], use_container_width=True)
+        vehicles_df = outputs["vehicle_detection_df"].copy()
+        vehicles_df.drop(columns=["datetime"], inplace=True)
+        st.dataframe(vehicles_df, use_container_width=True)
 
-        st.markdown("##### Vehicle Forecasting:")
+        st.markdown(f"##### Vehicle Forecasting (in the next {forecast_step} {HISTORY_STEP_UNIT}):")
         if SHOW_VEHICLE_FORECAST_GRAPH:
             vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
             vf_predictions = outputs["vehicle_forecast"]["predictions"]
             vf_df = vf_df[["total_vehicles"]]
             vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
             vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
-            pred_datetime = vf_df.index[-1] + timedelta(minutes=HISTORY_STEP)
+            pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
             if HISTORY_STEP_UNIT != "minutes":
                 raise NotImplementedError("Only minutes are supported for now.")
             pred_value = round(vf_predictions[0])
@@ -172,6 +174,7 @@ def present_results(container_placeholder, outputs):
             vf_df.loc[vf_df.index[len(vf_df)-1]] = [target_val[0], target_val[0]]
             vf_df.loc[pred_datetime, :] = [None, pred_value]
             st.line_chart(vf_df, use_container_width=True)
+            logger.debug(vf_df)
         else:
             vf_df = outputs["vehicle_forecast"]["previous_counts"]
             vf_predictions = outputs["vehicle_forecast"]["predictions"]
