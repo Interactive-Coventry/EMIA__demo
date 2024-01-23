@@ -315,5 +315,6 @@ def post_process_detect_vehicles(class_dict_list=None, keep_all_detected_classes
     class_df = pd.DataFrame.from_dict(new_rows)
     return class_df
 
+
 def set_results(vehicle_img, object_df):
     return {"image": vehicle_img, "dataframe": object_df}
