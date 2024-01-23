@@ -16,6 +16,8 @@ from torchvision.models import resnet18, resnet50
 
 from libs.foxutils.utils import train_with_lightning, core_utils
 from libs.foxutils.utils.lightning_models.prediction_model import PredictionModel
+import utils.google_drive_links as gdl
+from urllib.request import urlopen
 
 import logging
 logger = logging.getLogger("utils.weather_detection_utils")
@@ -195,12 +197,11 @@ def get_params_from_model_name(model_name):
 
 
 def load_weather_detection_model():
-    MODELS_DIR = core_utils.models_dir
     weather_detection_folder = core_utils.settings["WEATHER_DETECTION"]["weather_detection_folder"]
     weather_detection_checkpoint_file = core_utils.settings["WEATHER_DETECTION"]["weather_detection_checkpoint_file"]
     weather_detection_model = core_utils.settings["WEATHER_DETECTION"]["weather_detection_model"]
 
-    checkpoint_path = pathjoin(MODELS_DIR, weather_detection_folder, weather_detection_checkpoint_file + ".pts")
+    checkpoint_path = urlopen(gdl.links[weather_detection_folder][weather_detection_checkpoint_file + ".pts"]).read()
     weather_class_model_name, version, has_augmentation, has_transfer_learning = get_params_from_model_name(
         weather_detection_checkpoint_file)
 

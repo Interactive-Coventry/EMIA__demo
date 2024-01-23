@@ -3,11 +3,15 @@ import tensorflow as tf
 import numpy as np
 import joblib
 from os.path import join as pathjoin
+from os.path import exists
 
 import libs.foxutils.utils.data_generators as dgen
 import libs.foxutils.utils.train_functionalities as trainfunc
 import libs.foxutils.utils.core_utils as core_utils
 import libs.foxutils.utils.keras_models as km
+from utils.fetch_drive import fetch_h5_file_from_drive
+import utils.google_drive_links as gdl
+from urllib.request import urlopen
 
 import logging
 logger = logging.getLogger("utils.vehicle_forecasting")
@@ -21,12 +25,15 @@ def load_vehicle_forecasting_model():
     total_vehicles_prediction_model_time_step = core_utils.settings["VEHICLE_FORECASTING"][
         "total_vehicles_prediction_model_time_step"]
     vehicle_pred_model_filepath = pathjoin(MODELS_DIR, vehicle_prediction_folder, total_vehicles_prediction_model)
-    vehicle_pred_scaler = joblib.load(vehicle_pred_model_filepath + ".scaler.pkl")
+    vehicle_pred_scaler = joblib.load(urlopen(gdl.links["vehicle_prediction"]["cnn_weather_historystep5_v1.scaler.pkl"]))
 
     vehicle_pred_model, descr = km.make_single_step_model(total_vehicles_prediction_model_type,
                                                           conv_width=int(total_vehicles_prediction_model_time_step))
     vehicle_pred_model.build(input_shape=(None, 5, 7))
     vehicle_pred_model.compile()
+    if not exists(vehicle_pred_model_filepath + ".weights.h5"):
+        fetch_h5_file_from_drive(gdl.links["vehicle_prediction"]["cnn_weather_historystep5_v1.weights.h5"],
+                                 vehicle_pred_model_filepath + ".weights.h5")
     vehicle_pred_model.load_weights(vehicle_pred_model_filepath + ".weights.h5")
     logger.info(f"New vehicle prediction model loaded from {total_vehicles_prediction_model} on device {core_utils.device}. "
           f"Model type {type(vehicle_pred_model)}.")
