@@ -71,7 +71,7 @@ def download_files():
     # https://developers.google.com/drive/api/v3/quickstart/python
     # Use config_files/pydrive_settings.yaml
     # Download the file credentials.json.
-    
+
     # Vehicle prediction
     vehicle_prediction_folder = core_utils.settings["VEHICLE_FORECASTING"]["vehicle_prediction_folder"]
     vehicle_pred_model_filepath = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model"]
