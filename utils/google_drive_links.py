@@ -1,14 +1,21 @@
+from os import mkdir
+
 from libs.foxutils.utils import core_utils
-from libs.foxutils.utils.core_utils import mkdir_if_not_exist
 from libs.foxutils.utils.fetch_from_google_drive import load_weights_from_google_drive, fetch_h5_file_from_drive
 from os.path import join as pathjoin, exists
+import logging
+
+logger = logging.getLogger("utils.google_drive_links")
 
 export_link_parts = {
     "prefix": "https://drive.google.com/uc?id=",
     "suffix": "&export=download"
 }
 
-ids = {"vehicle_prediction": {
+shared_folder_link = "https://drive.google.com/drive/folders/1DcHp05K-qK92GpM2788MqeV8-SQhyVxs?usp=drive_link"
+
+ids = {
+    "vehicle_prediction": {
     "cnn_weather_historystep5_v1.scaler.pkl": "1_jxsTwjlzHBvWt3ugeC-7YYnNHOw8z7Z",
     "cnn_weather_historystep5_v1.weights.h5": "1jAjh30HMXJqlh3amtxrEcWmXqV2P18tM"
 },
@@ -50,8 +57,21 @@ def check_and_download_file(target_file, target_folder):
         load_weights_from_google_drive(file_id, checkpoint_path)
 
 
-def download_files():
+def download_shared_folder():
+    from gdown import download_folder
+    if not exists(MODELS_DIR):
+        mkdir(MODELS_DIR)
+        download_folder(url=shared_folder_link, output=MODELS_DIR, quiet=False)
+    else:
+        logger.info(f"Folder {MODELS_DIR} already exists. Skipping download.")
 
+
+def download_files():
+    # Needs to setup credentials from Google Drive API
+    # https://developers.google.com/drive/api/v3/quickstart/python
+    # Use config_files/pydrive_settings.yaml
+    # Download the file credentials.json.
+    
     # Vehicle prediction
     vehicle_prediction_folder = core_utils.settings["VEHICLE_FORECASTING"]["vehicle_prediction_folder"]
     vehicle_pred_model_filepath = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model"]

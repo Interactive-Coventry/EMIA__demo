@@ -5,7 +5,8 @@ import libs.foxutils.utils.core_utils as core_utils
 
 init_bar.progress(30, text="Initialization in progress. Downloading models. This will take some time.")
 import utils.google_drive_links as gdl
-gdl.download_files()
+#gdl.download_files()
+gdl.download_shared_folder()
 
 init_bar.progress(70, text="Initialization in progress. Loading models. This will take some time.")
 import app.provide_insights
