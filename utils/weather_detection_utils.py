@@ -1,5 +1,5 @@
 import json
-from os.path import join as pathjoin
+from os.path import join as pathjoin, exists
 import matplotlib.pyplot as plt
 import numpy as np
 import torchvision.transforms as T
@@ -13,14 +13,15 @@ import torch.optim as optim
 from efficientnet_pytorch import EfficientNet
 from torch.optim import lr_scheduler
 from torchvision.models import resnet18, resnet50
-
+from libs.foxutils.utils.fetch_from_google_drive import load_weights_from_google_drive
 from libs.foxutils.utils import train_with_lightning, core_utils
 from libs.foxutils.utils.lightning_models.prediction_model import PredictionModel
-import utils.google_drive_links as gdl
-from urllib.request import urlopen
 
 import logging
+
 logger = logging.getLogger("utils.weather_detection_utils")
+
+MODELS_DIR = core_utils.models_dir
 
 device = core_utils.device
 default_models_dir = pathjoin(core_utils.models_dir, "EMIA", "weather_from_image")
@@ -201,7 +202,7 @@ def load_weather_detection_model():
     weather_detection_checkpoint_file = core_utils.settings["WEATHER_DETECTION"]["weather_detection_checkpoint_file"]
     weather_detection_model = core_utils.settings["WEATHER_DETECTION"]["weather_detection_model"]
 
-    checkpoint_path = urlopen(gdl.links[weather_detection_folder][weather_detection_checkpoint_file + ".pts"]).read()
+    checkpoint_path = pathjoin(MODELS_DIR, weather_detection_folder, weather_detection_checkpoint_file + ".pts")
     weather_class_model_name, version, has_augmentation, has_transfer_learning = get_params_from_model_name(
         weather_detection_checkpoint_file)
 
