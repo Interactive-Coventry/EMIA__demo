@@ -20,7 +20,7 @@ def setup_dashcam_view():
     if IS_TEST:
         camera_choices = ["Camera 1", "Camera 2", "Camera 3"]
     else:
-        camera_choices = ["Camera 1 (SG)", "Camera 2 (GR)", "Camera 3 (UK)"]
+        camera_choices = ["Camera 1 (SG)", "Camera 2 (GR)", "Camera 3 (UK)", "Camera 4 (UK)"]
 
 
     if "stream_url" not in st.session_state:
@@ -60,6 +60,13 @@ def setup_dashcam_view():
                 st.session_state.stream_url = youtube_url
                 st.session_state.update_every_n_frames = 20
                 df_coord = pd.DataFrame({"ID": ["Camera  3 (UK)"], "Longitude": [-1.141297], "Latitude": [52.601009]})
+
+            if dashcam_source_btn == "Camera 4 (UK)": # Youtube link
+                youtube_url = "https://www.youtube.com/watch?v=QI4_dGvZ5yE"
+                st.session_state.stream_name = "test_UK2"
+                st.session_state.stream_url = youtube_url
+                st.session_state.update_every_n_frames = 60
+                df_coord = pd.DataFrame({"ID": ["Camera  4 (UK)"], "Longitude": [-0.075278], "Latitude": [51.505554]})
 
         with col2:
             if st.checkbox("Show camera locations on map", value=False, key="plot_markers_on_map"):
