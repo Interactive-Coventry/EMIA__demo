@@ -9,11 +9,11 @@ from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 
 from . import provide_insights
 from .provide_insights import IS_TEST
-from .common import present_results
+from .common import present_results, on_start_button_click, reset_values
 
 
 def setup_dashcam_view():
-    st.session_state.is_running = False
+    reset_values()
 
     st.markdown("### Input from Dashcam")
 
@@ -31,7 +31,6 @@ def setup_dashcam_view():
 
     if "stream_name" not in st.session_state:
         st.session_state.stream_name = ""
-
 
     with st.container():
         col1, col2 = st.columns(2)
@@ -77,10 +76,11 @@ def setup_dashcam_view():
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Start", key="start_btn"):
-            st.session_state.is_running = True
-            if exec_btn_placeholder.button("Stop", key="stop_btn"):
-                st.session_state.is_running = False
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+            on_start_button_click(True)
+            if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
+                reset_values()
+                exec_btn_placeholder.empty()
 
             provide_insights.get_insights(mode="stream",
                                           stream_url=st.session_state.stream_url,

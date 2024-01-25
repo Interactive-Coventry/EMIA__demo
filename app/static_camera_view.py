@@ -12,7 +12,8 @@ from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import make_weather_df, minute_rounder
 from utils.map_utils import get_expressway_camera_info
 from . import provide_insights
-from .common import get_target_image, present_results, append_weather_data_to_database
+from .common import get_target_image, present_results, append_weather_data_to_database, reset_values, \
+    on_start_button_click
 from .provide_insights import HISTORY_STEP, get_target_datetime
 
 import logging
@@ -49,9 +50,10 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
     outputs = provide_insights.get_insights(mode="files", full_filename=target_file)
     present_results(results_container_placeholder, outputs)
 
+
 def clear_jobs():
     clear_all_jobs()
-    st.session_state.is_running = False
+    reset_values()
     logger.info(f"Terminated all schedulers.")
 
 
@@ -62,17 +64,14 @@ def setup_expressway_camera_view():
     dashcam_source_btn = st.selectbox(label="Select input source", options=available_cameras,
                                       index=default_index, key="dashcam_source")
 
-    if "is_running" not in st.session_state:
-        clear_jobs()
-
-    st.session_state.is_running = False
+    clear_jobs()
 
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Fetch latest", key="start_btn"):
-            st.session_state.is_running = True
-            if exec_btn_placeholder.button("Stop", key="stop_btn"):
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_static"):
+            on_start_button_click(True)
+            if exec_btn_placeholder.button("Stop", key="stop_btn_static"):
                 clear_jobs()
 
             target_camera_id = dashcam_source_btn
@@ -93,7 +92,7 @@ def setup_expressway_camera_view():
 
             try:
                 job()
-                while st.session_state.is_running:
+                while "is_running" in st.session_state and st.session_state.is_running:
                     run_pending()
                     time.sleep(1)
             except AttributeError as e:# st.session_state has no attribute "is_running". Did you forget to initialize it?

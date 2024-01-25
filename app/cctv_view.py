@@ -1,10 +1,10 @@
 import streamlit as st
 from . import provide_insights
-from .common import present_results
+from .common import present_results, reset_values, on_start_button_click
 
 
 def setup_cctv_view():
-    st.session_state.is_running = False
+    reset_values()
 
     st.markdown("### Input from CCTV livestream")
 
@@ -30,10 +30,11 @@ def setup_cctv_view():
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Start", key="start_btn"):
-            st.session_state.is_running = True
-            if exec_btn_placeholder.button("Stop", key="stop_btn"):
-                st.session_state.is_running = False
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+            on_start_button_click(True)
+            if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
+                reset_values()
+                exec_btn_placeholder.empty()
 
             provide_insights.get_insights(mode="stream",
                                           stream_url=st.session_state.stream_url,

@@ -256,7 +256,11 @@ def get_insights(mode="files", **kwargs):
 
                     present_results_func(container_placeholder, results)
 
+            if not st.session_state.is_running:
+                logger.info(f"Stop button pressed.")
+                break
             if dataset.terminated:
+                logger.info(f"Stream terminated.")
                 break
         container_placeholder.empty()
         st_frame.caption("Finished processing stream.")
