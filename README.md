@@ -34,18 +34,19 @@ $ streamlit run .\streamlit-app.py
 
 - Test insights for single image using history <br>
 ```
-    $ python run_emia.py test 
+    $ python test-app.py test 
 ```
 
 - Get help <br>
 ```
-    $ python run_emia.py --help <br>
-    $ python run_emia.py analyze --help
-    $ python run_emia.py test --help
+    $ python test-app.py --help <br>
+    $ python test-app.py analyze --help
+    $ python test-app.py test --help
 ```
 
 ## For the config.ini file settings 
 
 - device: cpu or cuda
 - db_mode: local or streamlit or firebase
-- 
+
+Details in config_files/
