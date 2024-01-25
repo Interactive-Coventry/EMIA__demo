@@ -1,5 +1,5 @@
 import json
-from os.path import join as pathjoin
+from os.path import join as pathjoin, exists
 import matplotlib.pyplot as plt
 import numpy as np
 import torchvision.transforms as T
@@ -13,12 +13,15 @@ import torch.optim as optim
 from efficientnet_pytorch import EfficientNet
 from torch.optim import lr_scheduler
 from torchvision.models import resnet18, resnet50
-
+from libs.foxutils.utils.fetch_from_google_drive import load_weights_from_google_drive
 from libs.foxutils.utils import train_with_lightning, core_utils
 from libs.foxutils.utils.lightning_models.prediction_model import PredictionModel
 
 import logging
+
 logger = logging.getLogger("utils.weather_detection_utils")
+
+MODELS_DIR = core_utils.models_dir
 
 device = core_utils.device
 default_models_dir = pathjoin(core_utils.models_dir, "EMIA", "weather_from_image")
@@ -195,7 +198,6 @@ def get_params_from_model_name(model_name):
 
 
 def load_weather_detection_model():
-    MODELS_DIR = core_utils.models_dir
     weather_detection_folder = core_utils.settings["WEATHER_DETECTION"]["weather_detection_folder"]
     weather_detection_checkpoint_file = core_utils.settings["WEATHER_DETECTION"]["weather_detection_checkpoint_file"]
     weather_detection_model = core_utils.settings["WEATHER_DETECTION"]["weather_detection_model"]

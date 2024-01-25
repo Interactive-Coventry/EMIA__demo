@@ -75,7 +75,7 @@ EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
 #git+https://github.com/streamlit/files-connection
 #protobuf==3.19.5
 firebase-admin==6.2.0
-google-auth==2.23.3
+google-auth==2.26.2
 google-api-python-client==2.105.0
 google-cloud-core==2.3.3
 google-cloud-storage==2.12.0
@@ -84,3 +84,8 @@ google-cloud-firestore==2.13.0
 # Maps
 streamlit-folium==0.15.0
 folium==0.14.0
+
+
+# Drive
+#pydrive==1.3.1
+gdown==5.0.0
