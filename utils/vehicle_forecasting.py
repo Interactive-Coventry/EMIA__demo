@@ -3,11 +3,14 @@ import tensorflow as tf
 import numpy as np
 import joblib
 from os.path import join as pathjoin
+from os.path import exists
 
 import libs.foxutils.utils.data_generators as dgen
 import libs.foxutils.utils.train_functionalities as trainfunc
 import libs.foxutils.utils.core_utils as core_utils
 import libs.foxutils.utils.keras_models as km
+from libs.foxutils.utils.fetch_from_google_drive import fetch_h5_file_from_drive
+
 
 import logging
 logger = logging.getLogger("utils.vehicle_forecasting")
@@ -21,6 +24,8 @@ def load_vehicle_forecasting_model():
     total_vehicles_prediction_model_time_step = core_utils.settings["VEHICLE_FORECASTING"][
         "total_vehicles_prediction_model_time_step"]
     vehicle_pred_model_filepath = pathjoin(MODELS_DIR, vehicle_prediction_folder, total_vehicles_prediction_model)
+    #file_id = gdl.ids["vehicle_prediction"]["cnn_weather_historystep5_v1.scaler.pkl"]
+    #vehicle_pred_scaler = joblib.load(urlopen(gdl.export_link_parts["prefix"] + file_id))
     vehicle_pred_scaler = joblib.load(vehicle_pred_model_filepath + ".scaler.pkl")
 
     vehicle_pred_model, descr = km.make_single_step_model(total_vehicles_prediction_model_type,

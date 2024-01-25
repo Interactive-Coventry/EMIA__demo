@@ -165,7 +165,7 @@ gpu-39-venv/*
 venv/*
 # custom_models/*
 assets/pgadmin_sql_queries.txt
+custom_models_temp/*
 config_files/credentials.json
 config_files/pydrive_settings.yaml
 custom_models_temp/*
-
