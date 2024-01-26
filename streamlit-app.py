@@ -1,5 +1,7 @@
 import streamlit as st
 
+from app.common import reset_values
+
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 import libs.foxutils.utils.core_utils as core_utils
 
@@ -36,10 +38,7 @@ main_menu_radio_btn = st.sidebar.radio("Select input source", menu_items.keys(),
 
 # captions=menu_items.values())
 
-def reset_values():
-    if "is_running" not in st.session_state:
-        st.session_state.is_running = False
-
+reset_values()
 
 if main_menu_radio_btn == "Test":
     setup_test_view()

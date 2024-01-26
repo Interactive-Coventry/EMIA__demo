@@ -15,6 +15,7 @@ from utils.map_utils import print_expressway_camera_locations
 from utils.settings import DEFAULT_IMAGE_FILE, DEFAULT_DATASET_DIR
 
 import logging
+
 logger = logging.getLogger("app.common")
 
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
@@ -23,6 +24,17 @@ HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_p
 SHOW_ANOMALY_LABEL = False
 SHOW_WEATHER_LABEL = False
 SHOW_VEHICLE_FORECAST_GRAPH = True
+
+
+def reset_values():
+    st.session_state.is_running = False
+    logger.info(f'Reset so that is_running={st.session_state.is_running}')
+
+
+def on_start_button_click(is_running):
+    st.session_state.is_running = is_running
+    logger.debug(f'Button clicked so that is_running={st.session_state.is_running}')
+
 
 @st.cache_resource
 def init_connection():
@@ -44,6 +56,7 @@ if USES_FIREBASE:
 else:
     conn = init_connection()
 
+
 def append_weather_data_to_database(weather_df):
     if USES_FIREBASE:
         weather_df.reset_index(inplace=True, drop=False)
@@ -53,6 +66,7 @@ def append_weather_data_to_database(weather_df):
         database_utils.insert_row_to_firebase(firebase_db, row_dict, "weather", "id")
     else:
         database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=conn)
+
 
 def append_vehicle_counts_data_to_database(vehicle_counts_df):
     if USES_FIREBASE:
@@ -71,9 +85,9 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     if USES_FIREBASE:
         current_date = core_utils.convert_datetime_to_string(current_date)
         params = [["datetime", "<=", current_date]]
-        weather_data = firebase_db.collection("weather")\
-            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2]))\
-            .order_by("datetime", direction=firestore.Query.ASCENDING)\
+        weather_data = firebase_db.collection("weather") \
+            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
+            .order_by("datetime", direction=firestore.Query.ASCENDING) \
             .limit_to_last(batch_size).get()
         df_weather = database_utils.collection_reference_to_dataframe(weather_data, is_list=True)
         df_weather.drop(columns=["id"], inplace=True)
@@ -81,10 +95,10 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
 
         params = [["datetime", "<=", current_date],
                   ["camera_id", "==", str(camera_id)]]
-        vehicle_counts_data = firebase_db.collection("vehicle_counts")\
-            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2]))\
-            .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2]))\
-            .order_by("datetime", direction=firestore.Query.ASCENDING)\
+        vehicle_counts_data = firebase_db.collection("vehicle_counts") \
+            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
+            .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2])) \
+            .order_by("datetime", direction=firestore.Query.ASCENDING) \
             .limit_to_last(batch_size).get()
         df_vehicles = database_utils.collection_reference_to_dataframe(vehicle_counts_data, is_list=True)
         df_vehicles.drop(columns=["id"], inplace=True)
@@ -161,20 +175,24 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
 
         st.markdown(f"##### Vehicle Forecasting (in the next {forecast_step} {HISTORY_STEP_UNIT}):")
         if SHOW_VEHICLE_FORECAST_GRAPH:
-            vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
-            vf_predictions = outputs["vehicle_forecast"]["predictions"]
-            vf_df = vf_df[["total_vehicles"]]
-            vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
-            vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
-            pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
-            if HISTORY_STEP_UNIT != "minutes":
-                raise NotImplementedError("Only minutes are supported for now.")
-            pred_value = round(vf_predictions[0])
-            target_val = vf_df.iloc[len(vf_df)-1]
-            vf_df.loc[vf_df.index[len(vf_df)-1]] = [target_val[0], target_val[0]]
-            vf_df.loc[pred_datetime, :] = [None, pred_value]
-            st.line_chart(vf_df, use_container_width=True)
-            logger.debug(vf_df)
+            try:
+                vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
+                vf_predictions = outputs["vehicle_forecast"]["predictions"]
+                vf_df = vf_df[["total_vehicles"]]
+                vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
+                vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
+                pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
+                if HISTORY_STEP_UNIT != "minutes":
+                    raise NotImplementedError("Only minutes are supported for now.")
+                pred_value = round(vf_predictions[0])
+                target_val = vf_df.iloc[len(vf_df) - 1]
+                vf_df.loc[vf_df.index[len(vf_df) - 1]] = [target_val[0], target_val[0]]
+                vf_df.loc[pred_datetime, :] = [None, pred_value]
+                st.line_chart(vf_df, use_container_width=True)
+                logger.debug(vf_df)
+            except TypeError:
+                st.markdown(f"No vehicle forecasting results available, because no previous values are available. "
+                            f"Wait so that at least {HISTORY_STEP} images are captured.")
         else:
             vf_df = outputs["vehicle_forecast"]["previous_counts"]
             vf_predictions = outputs["vehicle_forecast"]["predictions"]
