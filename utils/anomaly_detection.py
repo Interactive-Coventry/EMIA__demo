@@ -99,6 +99,7 @@ def infer_from_image(img, model, device, ad_tfms):
     # Post Process
     norm_callback = MinMaxNormalizationCallback()
     norm_callback._normalize_batch(outputs, model)
+
     return outputs
 
 

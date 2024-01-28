@@ -134,6 +134,7 @@ def detect_from_image(imgs, od_model, od_opt, device):
     names = od_opt.names
     colors = od_opt.colors
     od_dict_list = []
+    od_img = []
     for img in imgs:
         # Padded resize
         od_img = letterbox(img, od_opt.img_size, od_opt.stride)[0]
@@ -150,6 +151,7 @@ def detect_from_image(imgs, od_model, od_opt, device):
                                       agnostic=od_opt.agnostic_nms)
 
         od_dict = {}
+        im0 = []
         for i, det in enumerate(od_pred):
             im0 = img.copy()
             if len(det):

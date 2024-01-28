@@ -1,6 +1,6 @@
 import os
 import time
-from threading import Thread, Event
+from threading import Thread
 
 import cv2
 import numpy as np

@@ -12,6 +12,7 @@ import pytz
 import streamlit as st
 import pandas as pd
 from PIL import Image
+import gc
 
 from emia_utils.process_utils import make_vehicle_counts_df
 from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
@@ -42,12 +43,14 @@ logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
 
 #############Load models#####
 logger.info("\n\n------------------Load Models------------------")
-vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
-weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
-ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
+st.session_state.vf_model, st.session_state.vf_scaler = vf.load_vehicle_forecasting_model()
+st.session_state.weather_class_model, st.session_state.weather_class_model_name = wd.load_weather_detection_model()
+st.session_state.ad_model, st.session_state.ad_tfms, st.session_state.ad_config = ad.load_anomaly_detection_model(
+    device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
 if not RUN_PER_FRAME:
-    ad_trainer = ad_tfms
-od_model, od_opt = od.load_object_detection_model(save_img=True, save_txt=True, device=DEVICE)
+    st.session_state.ad_trainer = st.session_state.ad_tfms
+st.session_state.od_model, st.session_state.od_opt = od.load_object_detection_model(save_img=True, save_txt=True,
+                                                                                    device=DEVICE)
 logger.info("\n\n------------------Finished Loading Models------------------")
 
 
@@ -256,6 +259,8 @@ def get_insights(mode="files", **kwargs):
 
                     present_results_func(container_placeholder, results)
 
+                    gc.collect()
+                    
             if not st.session_state.is_running:
                 logger.info(f"Stop button pressed.")
                 break
