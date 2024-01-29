@@ -12,6 +12,7 @@ import pytz
 import streamlit as st
 import pandas as pd
 from PIL import Image
+import gc
 
 from emia_utils.process_utils import make_vehicle_counts_df
 from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
@@ -42,12 +43,15 @@ logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
 
 #############Load models#####
 logger.info("\n\n------------------Load Models------------------")
-vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
-weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
-ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
+st.session_state.vf_model, st.session_state.vf_scaler = vf.load_vehicle_forecasting_model()
+st.session_state.weather_class_model, st.session_state.weather_class_model_name = wd.load_weather_detection_model()
+st.session_state.ad_model, st.session_state.ad_tfms, st.session_state.ad_config = ad.load_anomaly_detection_model(
+    device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
 if not RUN_PER_FRAME:
-    ad_trainer = ad_tfms
-od_model, od_opt = od.load_object_detection_model(save_img=True, save_txt=True, device=DEVICE)
+    st.session_state.ad_trainer = st.session_state.ad_tfms
+st.session_state.od_model, st.session_state.od_opt = od.load_object_detection_model(save_img=True, save_txt=True,
+                                                                                    device=DEVICE)
+st.session_state.od_model.eval()
 logger.info("\n\n------------------Finished Loading Models------------------")
 
 
@@ -89,37 +93,25 @@ def get_relevant_data(full_filename, delete_previous_results=False, history_leng
     return image_file, folder, filepath, target_files
 
 
-def process_frame(img, img_buffer, device, history_length, current_date=None, camera_id=None, is_test=IS_TEST):
-    has_history = len(img_buffer) >= history_length
-    if history_length > 32:
-        raise ValueError(f"History length {history_length} cannot be larger than batch size {od_opt.batch_size}")
-    if has_history:
-        img_buffer = img_buffer[-history_length:]
-        img_buffer.append(img)
+def process_frame(img_dict, device, camera_id=None):
+    if isinstance(img_dict, dict):
+        target_datetime = img_dict["datetime"]
+        cv2_img = img_dict["image"]
     else:
-        img_buffer = [img]
+        target_datetime = core_utils.get_current_datetime(tz=target_tz)
+        cv2_img = img_dict
 
-    cap_dates = []  # ascending order
-    imgs = []
-    for x in img_buffer:
-        if isinstance(x, dict):
-            cap_dates.append(x["datetime"])
-            imgs.append(x["image"])
-        else:
-            cap_dates.append(core_utils.get_current_datetime(tz=target_tz))
-            imgs.append(x)
-
-    target_datetime = cap_dates[-1].replace(tzinfo=None)
+    target_datetime = target_datetime.replace(tzinfo=None)
     logger.info(f"Target datetime: {target_datetime}")
     results_dict = {"input": {"datetime": target_datetime, "timezone": target_tz}}
-    cv2_img = imgs[-1]
     pil_img = Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB))
     orig_dim = pil_img.size  # (width, height)
     logger.debug(f"Original image size: {orig_dim}")
 
+    
     logger.debug("------------------Run object detection------------------")
-    od_img, od_dict_list = od.detect_from_image(imgs, od_model, od_opt, device)
-    od_dfs = od.post_process_detect_vehicles(class_dict_list=od_dict_list)
+    od_img, od_dict = od.detect_from_image(cv2_img, st.session_state.od_model, st.session_state.od_opt, device)
+    od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
     od_row = pd.DataFrame(od_dfs.iloc[-1]).T
     od_row["datetime"] = [target_datetime]
     od_row["camera_id"] = [camera_id]
@@ -129,53 +121,38 @@ def process_frame(img, img_buffer, device, history_length, current_date=None, ca
     results_dict["object_detection"] = od.set_results(od_img, od_row)
 
     logger.debug("------------------Run weather detection------------------")
-    wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
+    wd_label, wd_prob, _ = wd.predict(pil_img, st.session_state.weather_class_model, wd.weather_classes, st.session_state.weather_class_model_name)
     logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
     results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
 
     logger.debug("------------------Run anomaly detection------------------")
-    ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
+    ad_result = ad.infer_from_image(cv2_img, st.session_state.ad_model, device, st.session_state.ad_tfms)
     results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
     # image_utils.write_image("heatmap.jpg", ad_config.project.path, results_dict["anomaly_detection"]["heat_map_image"],
     #                        ad.HEATMAP_FOLDER_NAME)
     logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
 
     logger.debug("------------------Run vehicle flow prediction------------------")
-    if is_test:
-        vf_feature_df = pd.read_csv(DEFAULT_VEHICLE_FORECAST_FEATURES_DF)
-        vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df, history_length)
+    vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id, HISTORY_LENGTH)
+    if len(vf_feature_df) < HISTORY_LENGTH:
+        logger.debug(f"Not enough history values for calculation")
+        results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
+    else:
+        vf_predictions = vf.forecast_vehicles(st.session_state.vf_model, st.session_state.vf_scaler, vf_feature_df,
+                                              HISTORY_LENGTH)
         results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
         logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
-        logger.info(f"Using test values for the prediction.")
 
-    else:
-        vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(current_date, camera_id, history_length)
-        if len(vf_feature_df) < history_length:
-            logger.debug(f"Not enough history values for calculation")
-            results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
-        else:
-            vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df, history_length)
-            results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
-            logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
+    results_dict["weather_info"] = weather_info
 
-        results_dict["weather_info"] = weather_info
     return results_dict
 
 
-def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
-    if current_date is None:
-        current_date = core_utils.get_current_datetime(tz=target_tz)
+def get_processing_results(img, camera_id=None):
     if camera_id is None:
         camera_id = 'NA'
 
-    start_time = time.time()
-    start_time_cpu = time.process_time()
-    results = process_frame(img, img_buffer, device=DEVICE, history_length=HISTORY_LENGTH,
-                            current_date=current_date, camera_id=camera_id)
-
-    end_time = time.time() - start_time
-    end_time_cpu = time.process_time() - start_time_cpu
-    logger.debug(f"\n\nFinished execution.\nRuntime: {end_time:.4f}sec\nCPU runtime: {end_time_cpu:.4f}sec\n\n")
+    results = process_frame(img, device=DEVICE, camera_id=camera_id)
 
     vf_df = results["vehicle_forecasting"]["dataframe"]
     vf_predictions = results["vehicle_forecasting"]["predictions"]
@@ -186,10 +163,10 @@ def get_processing_results(img, img_buffer, current_date=None, camera_id=None):
                                              results["anomaly_detection"]["prob"])
     weather_info = results["weather_info"]
     weather_info = weather_info[["weather", "description", "temp", "feels_like", "pressure", "humidity", "wind_speed",
-        "clouds_all"]]
+                                 "clouds_all"]]
     weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temp",
-                                 "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
-                                 "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
+                         "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
+                         "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
     weather_info = weather_info.to_frame()
 
     outputs = {
@@ -216,13 +193,8 @@ def get_insights(mode="files", **kwargs):
         image_file, folder, filepath, target_files = get_relevant_data(full_filename,
                                                                        delete_previous_results=False,
                                                                        history_length=HISTORY_LENGTH)
-        if HAS_IMAGE_HISTORY and len(target_files) >= HISTORY_LENGTH:
-            img_buffer = [{"image": cv2.imread(pathjoin(filepath, x)), "datetime": get_target_datetime(x)} for x in
-                          target_files]
-        else:
-            img_buffer = []
 
-        return get_processing_results(img, img_buffer, current_datetime, folder)
+        return get_processing_results(img, camera_id=folder)
 
     elif mode == "stream":
         stream_url = kwargs["stream_url"]
@@ -234,7 +206,6 @@ def get_insights(mode="files", **kwargs):
 
         st_frame = st.empty()
         container_placeholder = st.empty()
-        img_buffer = []
         count = 0
         for image in dataset:
             count = count + 1
@@ -248,13 +219,10 @@ def get_insights(mode="files", **kwargs):
                     count = 0
                     current_time = core_utils.get_current_datetime(tz=target_tz)
                     img = {"image": image, "datetime": current_time}
-                    results = get_processing_results(img, img_buffer, current_time, stream_name)
-                    if HAS_IMAGE_HISTORY:
-                        img_buffer.append(img)
-                        if len(img_buffer) > HISTORY_LENGTH:
-                            img_buffer = img_buffer[-HISTORY_LENGTH:]
 
+                    results = get_processing_results(img, stream_name)
                     present_results_func(container_placeholder, results)
+                    gc.collect()
 
             if not st.session_state.is_running:
                 logger.info(f"Stop button pressed.")

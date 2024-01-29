@@ -22,7 +22,6 @@ def setup_dashcam_view():
     else:
         camera_choices = ["Camera 1 (SG)", "Camera 2 (GR)", "Camera 3 (UK)", "Camera 4 (UK)"]
 
-
     if "stream_url" not in st.session_state:
         st.session_state.stream_url = ""
 
@@ -73,17 +72,19 @@ def setup_dashcam_view():
                 m = plot_markers_on_map(center_coords, df_coord)
                 st_data = st_folium(m, height=300)
 
-    exec_btn_placeholder = st.empty()
+        exec_btn_placeholder = st.empty()
 
-    if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
-            on_start_button_click(True)
-            if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
-                reset_values()
-                exec_btn_placeholder.empty()
+        if not st.session_state.is_running:
+            if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+                on_start_button_click(True)
+                if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
+                    reset_values()
+                    exec_btn_placeholder.empty()
 
-            provide_insights.get_insights(mode="stream",
-                                          stream_url=st.session_state.stream_url,
-                                          stream_name=st.session_state.stream_name,
-                                          present_results_func= lambda x, y: present_results(x, y, forecast_step=1),
-                                          update_every_n_frames=st.session_state.update_every_n_frames)
+                provide_insights.get_insights(mode="stream",
+                                              stream_url=st.session_state.stream_url,
+                                              stream_name=st.session_state.stream_name,
+                                              present_results_func=lambda x, y: present_results(x, y, forecast_step=1),
+                                              update_every_n_frames=st.session_state.update_every_n_frames)
+
+
