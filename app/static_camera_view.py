@@ -9,7 +9,7 @@ import time
 
 from emia_utils import download_utils
 from libs.foxutils.utils import core_utils
-from emia_utils.process_utils import make_weather_df, minute_rounder
+from emia_utils.process_utils import make_weather_df
 from utils.map_utils import get_expressway_camera_info
 from . import provide_insights
 from .common import get_target_image, present_results, append_weather_data_to_database, reset_values, \

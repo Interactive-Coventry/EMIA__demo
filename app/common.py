@@ -1,7 +1,6 @@
 from datetime import timedelta
 from os.path import join as pathjoin
 
-import pandas as pd
 import streamlit as st
 from PIL import Image
 import libs.foxutils.utils.core_utils as core_utils

@@ -45,7 +45,7 @@ tensorboard==2.10.1
 # Dashcam
 av==10.0.0
 pymongo==4.5.0
-streamlit==1.22.0
+streamlit==1.30.0
 streamlit_webrtc==0.47.1
 twilio==8.9.0
 websockets==11.0.3
@@ -73,9 +73,9 @@ EMIA__utils @ git+https://github.com/Interactive-Coventry/EMIA__utils@v1
 # Firebase
 #gcsfs==2023.9.2
 #git+https://github.com/streamlit/files-connection
-#protobuf==3.19.5
+protobuf==3.20.3
 firebase-admin==6.2.0
-google-auth==2.23.3
+google-auth==2.26.2
 google-api-python-client==2.105.0
 google-cloud-core==2.3.3
 google-cloud-storage==2.12.0

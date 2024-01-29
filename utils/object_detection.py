@@ -1,4 +1,5 @@
 import warnings
+
 warnings.filterwarnings("ignore", ".*Consider increasing the value of the `num_workers` argument*")
 
 from os.path import join as pathjoin
@@ -8,6 +9,7 @@ import pandas as pd
 from os import listdir
 from natsort import natsorted
 from PIL import Image, ImageFile
+import gc
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -130,42 +132,44 @@ def load_object_detection_model(save_img=True, save_txt=True, device="cuda"):
     return model, opt
 
 
-def detect_from_image(imgs, od_model, od_opt, device):
+def detect_from_image(img, od_model, od_opt, device):
     names = od_opt.names
     colors = od_opt.colors
-    od_dict_list = []
-    for img in imgs:
-        # Padded resize
-        od_img = letterbox(img, od_opt.img_size, od_opt.stride)[0]
-        # Convert
-        od_img = od_img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-        od_img = np.ascontiguousarray(od_img)
-        od_img = torch.from_numpy(od_img).to(device)
-        od_img = od_img.half() if od_opt.half else od_img.float()
-        od_img /= 255.0
-        if od_img.ndimension() == 3:
-            od_img = od_img.unsqueeze(0)
+
+    # Padded resize
+    od_img = letterbox(img, od_opt.img_size, od_opt.stride)[0]
+    # Convert
+    od_img = od_img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+    od_img = np.ascontiguousarray(od_img)
+    od_img = torch.from_numpy(od_img).to(device)
+    od_img = od_img.half() if od_opt.half else od_img.float()
+    od_img /= 255.0
+    if od_img.ndimension() == 3:
+        od_img = od_img.unsqueeze(0)
+
+    with torch.no_grad():
+        #temporarily disable gradient calculation.
+        #This is particularly useful when you're performing inference and can lead to faster and more memory-efficient computations.
         od_pred = od_model(od_img, augment=od_opt.augment)[0]
         od_pred = non_max_suppression(od_pred, od_opt.conf_thres, od_opt.iou_thres, classes=od_opt.classes,
                                       agnostic=od_opt.agnostic_nms)
 
-        od_dict = {}
-        for i, det in enumerate(od_pred):
-            im0 = img.copy()
-            if len(det):
-                det[:, :4] = scale_coords(od_img.shape[2:], det[:, :4], im0.shape).round()
-                for c in det[:, -1].unique():
-                    n = (det[:, -1] == c).sum()
-                    od_dict[names[int(c)]] = int(n)
+    od_dict = {}
 
-                for *xyxy, conf, cls in reversed(det):
-                    label = f"{names[int(cls)]} {conf:.2f}"
-                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+    for i, det in enumerate(od_pred):
+        if len(det):
+            det[:, :4] = scale_coords(od_img.shape[2:], det[:, :4], img.shape).round()
+            for c in det[:, -1].unique():
+                n = (det[:, -1] == c).sum()
+                od_dict[names[int(c)]] = int(n)
 
-        od_dict_list.append(od_dict)
-        od_img = Image.fromarray(im0[:, :, ::-1])
+            for *xyxy, conf, cls in reversed(det):
+                label = f"{names[int(cls)]} {conf:.2f}"
+                plot_one_box(xyxy, img, label=label, color=colors[int(cls)], line_thickness=2)
 
-    return od_img, od_dict_list
+    od_img = Image.fromarray(img[:, :, ::-1])
+
+    return od_img, od_dict
 
 
 def detect(model, opt, image_source=None, file_list=None):

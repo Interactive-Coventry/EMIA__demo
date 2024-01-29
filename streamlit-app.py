@@ -1,7 +1,8 @@
 import streamlit as st
-
+#from streamlit_profiler import Profiler
 from app.common import reset_values
 
+#with Profiler():
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 import libs.foxutils.utils.core_utils as core_utils
 
