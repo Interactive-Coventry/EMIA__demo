@@ -23,8 +23,8 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.stream_utils import LoadStreams, RETRIEVE_EVERY_N_FRAMES, CUSTOM_FPS
-from utils.settings import DEFAULT_FILEPATH, OBJECT_DETECTION_DIR, DEFAULT_VEHICLE_FORECAST_FEATURES_DF
+from utils.stream_utils import LoadStreams
+from utils.settings import DEFAULT_FILEPATH
 
 logger = logging.getLogger("app.provide_insights")
 
