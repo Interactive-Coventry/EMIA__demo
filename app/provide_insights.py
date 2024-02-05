@@ -2,7 +2,6 @@ import warnings
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-import time
 from os.path import join as pathjoin
 import logging
 from os import sep
@@ -19,11 +18,12 @@ from app.common import read_vehicle_forecast_data_from_database, append_vehicle_
 
 import libs.foxutils.utils.core_utils as core_utils
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
+from libs.foxutils.streams.stream_utils import LoadStreams
+from libs.tools.object_detection import load_object_detection_model, detect_from_image
 import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.stream_utils import LoadStreams
 from utils.settings import DEFAULT_FILEPATH
 
 logger = logging.getLogger("app.provide_insights")
@@ -49,9 +49,10 @@ ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(
     device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
 if not RUN_PER_FRAME:
     ad_trainer = ad_tfms
-od_model, od_opt = od.load_object_detection_model(save_img=True, save_txt=True,
+od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True,
                                                                                     device=DEVICE)
 od_model.eval()
+
 logger.info("\n\n------------------Finished Loading Models------------------")
 
 
@@ -108,9 +109,8 @@ def process_frame(img_dict, device, camera_id=None):
     orig_dim = pil_img.size  # (width, height)
     logger.debug(f"Original image size: {orig_dim}")
 
-    
     logger.debug("------------------Run object detection------------------")
-    od_img, od_dict = od.detect_from_image(cv2_img, od_model, od_opt, device)
+    od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt, device)
     od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
     od_row = pd.DataFrame(od_dfs.iloc[-1]).T
     od_row["datetime"] = [target_datetime]
@@ -122,6 +122,7 @@ def process_frame(img_dict, device, camera_id=None):
 
     logger.debug("------------------Run weather detection------------------")
     wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
+
     logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
     results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
 
@@ -202,7 +203,7 @@ def get_insights(mode="files", **kwargs):
         present_results_func = kwargs["present_results_func"]
         update_every_n_frames = kwargs["update_every_n_frames"]
 
-        dataset = LoadStreams(stream_url, custom_fps=None)
+        dataset = LoadStreams(stream_url, custom_fps=None, use_oauth=False, allow_oauth_cache=False)
 
         st_frame = st.empty()
         container_placeholder = st.empty()
@@ -241,9 +242,6 @@ def test_analyze():
     target_dir = DEFAULT_FILEPATH
     print(f"Test for {target_dir}")
     raise NotImplementedError
-    results_dict = process_file(target_dir, delete_previous_results=False, history_length=5)
-    print_results(results_dict)
-    return results_dict
 
 
 def print_results(results_dict):
