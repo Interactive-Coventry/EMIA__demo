@@ -43,15 +43,16 @@ logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
 
 #############Load models#####
 logger.info("\n\n------------------Load Models------------------")
-st.session_state.vf_model, st.session_state.vf_scaler = vf.load_vehicle_forecasting_model()
-st.session_state.weather_class_model, st.session_state.weather_class_model_name = wd.load_weather_detection_model()
-st.session_state.ad_model, st.session_state.ad_tfms, st.session_state.ad_config = ad.load_anomaly_detection_model(
+vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
+weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
+ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(
     device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
 if not RUN_PER_FRAME:
-    st.session_state.ad_trainer = st.session_state.ad_tfms
-st.session_state.od_model, st.session_state.od_opt = load_object_detection_model(save_img=True, save_txt=True,
-                                                                                 device=DEVICE)
-st.session_state.od_model.eval()
+    ad_trainer = ad_tfms
+od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True,
+                                                                                    device=DEVICE)
+od_model.eval()
+
 logger.info("\n\n------------------Finished Loading Models------------------")
 
 
@@ -109,7 +110,7 @@ def process_frame(img_dict, device, camera_id=None):
     logger.debug(f"Original image size: {orig_dim}")
 
     logger.debug("------------------Run object detection------------------")
-    od_img, od_dict = detect_from_image(cv2_img, st.session_state.od_model, st.session_state.od_opt, device)
+    od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt, device)
     od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
     od_row = pd.DataFrame(od_dfs.iloc[-1]).T
     od_row["datetime"] = [target_datetime]
@@ -120,13 +121,13 @@ def process_frame(img_dict, device, camera_id=None):
     results_dict["object_detection"] = od.set_results(od_img, od_row)
 
     logger.debug("------------------Run weather detection------------------")
-    wd_label, wd_prob, _ = wd.predict(pil_img, st.session_state.weather_class_model, wd.weather_classes,
-                                      st.session_state.weather_class_model_name)
+    wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
+
     logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
     results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
 
     logger.debug("------------------Run anomaly detection------------------")
-    ad_result = ad.infer_from_image(cv2_img, st.session_state.ad_model, device, st.session_state.ad_tfms)
+    ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
     results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
     # image_utils.write_image("heatmap.jpg", ad_config.project.path, results_dict["anomaly_detection"]["heat_map_image"],
     #                        ad.HEATMAP_FOLDER_NAME)
@@ -138,7 +139,7 @@ def process_frame(img_dict, device, camera_id=None):
         logger.debug(f"Not enough history values for calculation")
         results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
     else:
-        vf_predictions = vf.forecast_vehicles(st.session_state.vf_model, st.session_state.vf_scaler, vf_feature_df,
+        vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df,
                                               HISTORY_LENGTH)
         results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
         logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
