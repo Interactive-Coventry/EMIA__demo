@@ -1,9 +1,7 @@
 import warnings
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from os.path import join as pathjoin
-import logging
 from os import sep
 import json
 import cv2
@@ -12,10 +10,8 @@ import streamlit as st
 import pandas as pd
 from PIL import Image
 import gc
-
 from emia_utils.process_utils import make_vehicle_counts_df
 from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
-
 import libs.foxutils.utils.core_utils as core_utils
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
@@ -26,7 +22,7 @@ import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
 from utils.settings import DEFAULT_FILEPATH
 
-logger = logging.getLogger("app.provide_insights")
+logger = core_utils.get_logger("app.provide_insights")
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")

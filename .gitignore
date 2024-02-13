@@ -168,3 +168,4 @@ assets/pgadmin_sql_queries.txt
 config_files/credentials.json
 config_files/pydrive_settings.yaml
 custom_models_temp/*
+log.txt

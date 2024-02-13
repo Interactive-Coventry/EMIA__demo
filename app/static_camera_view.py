@@ -15,9 +15,7 @@ from . import provide_insights
 from .common import get_target_image, present_results, append_weather_data_to_database, reset_values, \
     on_start_button_click
 from .provide_insights import HISTORY_STEP, get_target_datetime
-
-import logging
-logger = logging.getLogger("app.static_camera_view")
+logger = core_utils.get_logger("app.static_camera_view")
 
 TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"
 

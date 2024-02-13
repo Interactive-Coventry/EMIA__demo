@@ -4,12 +4,10 @@ import pandas as pd
 from os import listdir
 from natsort import natsorted
 from PIL import ImageFile
-
 from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import read_classes_from_csv_file
 
-import logging
-logger = logging.getLogger("utils.object_detection")
+logger = core_utils.get_logger("utils.object_detection")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 vehicle_classes = ["bicycle", "bus", "car", "motorcycle", "person", "truck"]

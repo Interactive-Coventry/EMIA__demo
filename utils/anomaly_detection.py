@@ -16,7 +16,6 @@ from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
 import libs.anomalib as anomalib
 sys.modules["anomalib"] = anomalib
-
 from libs.anomalib.config import get_configurable_parameters
 from libs.anomalib.data.inference import InferenceDataset
 from libs.anomalib.models import get_model
@@ -27,8 +26,7 @@ from libs.anomalib.utils.callbacks import get_callbacks, MinMaxNormalizationCall
 from libs.anomalib.data.utils import get_transforms
 from libs.foxutils.utils import core_utils
 
-import logging
-logger = logging.getLogger("utils.anomaly_detection")
+logger = core_utils.get_logger("utils.anomaly_detection")
 
 torch.set_float32_matmul_precision("medium")
 
