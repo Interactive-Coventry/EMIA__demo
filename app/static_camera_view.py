@@ -1,23 +1,21 @@
 from os import sep
 from os.path import join as pathjoin
-
 import pandas as pd
 import streamlit as st
 from schedule import every, repeat, run_pending
 from schedule import clear as clear_all_jobs
 import time
-
 from emia_utils import download_utils
 from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import make_weather_df
+
+from utils.configuration import TRAFFIC_IMAGES_PATH
 from utils.map_utils import get_expressway_camera_info
 from . import provide_insights
 from .common import get_target_image, present_results, append_weather_data_to_database, reset_values, \
     on_start_button_click
 from .provide_insights import HISTORY_STEP, get_target_datetime
 logger = core_utils.get_logger("app.static_camera_view")
-
-TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"
 
 
 def fetch_current_data(target_camera_id):

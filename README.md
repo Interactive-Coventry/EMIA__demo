@@ -52,6 +52,8 @@ $ streamlit run .\app.py
 Details in config_files/
 
 ## For docker 
+Requires python 3.9
+
 ```
 $ mkdir emia__demo
 $ cd emia__demo

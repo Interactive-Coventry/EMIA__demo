@@ -6,15 +6,13 @@ from natsort import natsorted
 from PIL import ImageFile
 from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import read_classes_from_csv_file
-
 logger = core_utils.get_logger("utils.object_detection")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
 vehicle_classes = ["bicycle", "bus", "car", "motorcycle", "person", "truck"]
-
+RUNS_DIR = core_utils.settings["DIRECTORY"]["runs_dir"]
 WEIGHTS_DIR = pathjoin(core_utils.models_dir, "yolov7", "weights")
 YOLO_MODEL = pathjoin(WEIGHTS_DIR, "yolov7_training")
-RUNS_FOLDER = pathjoin("runs", "detect", "exp")
+RUNS_FOLDER = pathjoin(RUNS_DIR, "detect", "exp")
 
 
 def rearrange_class_dict(class_dict, target_classes=None):

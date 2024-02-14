@@ -1,8 +1,8 @@
 import streamlit as st
 
+from utils.configuration import EXPRESSWAY_CAMERA_IDS, DEFAULT_FILEPATH, DEFAULT_CAMERA_ID
 from . import provide_insights
 from .common import present_results, get_target_image
-from utils.settings import DEFAULT_CAMERA_ID, DEFAULT_FILEPATH, EXPRESSWAY_CAMERA_IDS
 
 def setup_test_view():
     with st.form("test"):

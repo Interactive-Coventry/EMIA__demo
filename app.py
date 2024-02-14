@@ -1,5 +1,6 @@
 import streamlit as st
 from app.common import reset_values
+from app.video_view import setup_video_view
 
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 import libs.foxutils.utils.core_utils as core_utils
@@ -20,17 +21,13 @@ from app.provide_insights import IS_TEST
 st.sidebar.title("Digital Twin of Singapore")
 st.sidebar.write("Describe the current situation on the road.")
 
-if IS_TEST:
-    menu_items = {"Test": "Test",
-                  "Expressway Camera": "NotImplemented",
-                  "Dashcam": "NotImplemented",
-                  }
-else:
-    menu_items = {
-        "Expressway Camera": "Fetch images from expressway cameras API",
-        "Dashcam": "Fetch video stream from dashcam",
-        "CCTV": "Fetch video stream from CCTV",
-    }
+menu_items = {
+    "Expressway Camera": "Fetch images from expressway cameras API",
+    "Dashcam": "Fetch video stream from dashcam",
+    "Video": "Fetch video stream from URL",
+    "CCTV": "Fetch video stream from CCTV",
+}
+
 
 main_menu_radio_btn = st.sidebar.radio("Select input source", menu_items.keys(), index=0, key="input_source", )
 
@@ -47,6 +44,9 @@ elif main_menu_radio_btn == "Expressway Camera":
 
 elif main_menu_radio_btn == "Dashcam":
     setup_dashcam_view()
+
+elif main_menu_radio_btn == "Video":
+    setup_video_view()
 
 elif main_menu_radio_btn == "CCTV":
     setup_cctv_view()

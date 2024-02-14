@@ -8,11 +8,10 @@ from emia_utils.process_utils import prepare_features_for_vehicle_counts
 from emia_utils import database_utils
 from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
+from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE
 from utils.map_utils import print_expressway_camera_locations
-from utils.settings import DEFAULT_IMAGE_FILE, DEFAULT_DATASET_DIR
 
 logger = core_utils.get_logger("app.common")
-
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
 HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
 

@@ -20,7 +20,7 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.settings import DEFAULT_FILEPATH
+from utils.configuration import DEFAULT_FILEPATH
 
 logger = core_utils.get_logger("app.provide_insights")
 
@@ -38,16 +38,23 @@ logger.debug(f"Is test: {IS_TEST}")
 logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
 
 #############Load models#####
-logger.info("\n\n------------------Load Models------------------")
-vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
-weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
-ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(
-    device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
-if not RUN_PER_FRAME:
-    ad_trainer = ad_tfms
-od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True,
-                                                                                    device=DEVICE)
-od_model.eval()
+if IS_TEST:
+    vf_model, vf_scaler = None, None
+    weather_class_model, weather_class_model_name = None, None
+    ad_model, ad_tfms, ad_config = None, None, None
+    ad_trainer = None
+    od_model, od_opt = None, None
+else:
+    logger.info("\n\n------------------Load Models------------------")
+    vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
+    weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
+    ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(
+        device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
+    if not RUN_PER_FRAME:
+        ad_trainer = ad_tfms
+    od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True,
+                                                                                        device=DEVICE)
+    od_model.eval()
 
 logger.info("\n\n------------------Finished Loading Models------------------")
 
