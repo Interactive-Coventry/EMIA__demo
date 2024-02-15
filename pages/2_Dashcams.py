@@ -4,56 +4,22 @@ import os
 import time
 from datetime import datetime
 from os.path import join as pathjoin
+
+import pytz
 import streamlit as st
 import websockets
 from PIL import Image, UnidentifiedImageError, ImageFile
+from libs.foxutils.utils import core_utils
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
-
-from utils.common import on_start_button_click
+from utils.common import set_value
 from utils import configuration
+from utils.provide_insights import get_insights, process_dashcam_frame
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 logger = get_logger("dashcam-view")
 DATA_DIR = settings["DIRECTORY"]["datasets_dir"]
-
-if "is_calling" not in st.session_state:
-    st.session_state.is_calling = False
-
-if "has_pending_tasks" not in st.session_state:
-    st.session_state.has_pending_tasks = False
-
-if "target_device" not in st.session_state:
-    st.session_state.target_device = None
-
-if "loop" not in st.session_state:
-    st.session_state.loop = None
-
-if "first_run" not in st.session_state:
-    st.session_state.first_run = True
-
-
-def initialize():
-    if "is_calling" not in st.session_state:
-        st.session_state.is_calling = False
-
-    if "has_pending_tasks" not in st.session_state:
-        st.session_state.has_pending_tasks = False
-
-    if "target_device" not in st.session_state:
-        st.session_state.target_device = None
-
-    if "loop" not in st.session_state:
-        st.session_state.loop = None
-
-    if "first_run" not in st.session_state:
-        st.session_state.first_run = True
-
-
-def is_first_run():
-    return st.session_state.first_run
-
 
 def make_new_loop():
     loop = asyncio.new_event_loop()
@@ -63,24 +29,22 @@ def make_new_loop():
     return loop
 
 
-def on_button_click(is_calling):
-    st.session_state.is_calling = is_calling
-    logger.debug(f"Changed is_calling to {is_calling}")
-    if is_calling:
-        set_has_pending_tasks(True)
-
-
-def set_has_pending_tasks(value):
-    st.session_state.has_pending_tasks = value
-    logger.info(f"Changed has_pending_tasks to {value}")
-
-
 def cancel_all_tasks(pending):
     for task in pending:
         try:
             task.cancel()
         except asyncio.CancelledError as e:
             logger.debug(f"asyncio.CancelledError: {e}")
+            logger.info(f"Task {task} is cancelled.")
+    logger.info("All pending tasks were cancelled.")
+
+
+async def cancel_all_tasks2(pending):
+    for task in pending:
+        try:
+            task.cancel()
+            await task
+        except asyncio.CancelledError:
             logger.info(f"Task {task} is cancelled.")
     logger.info("All pending tasks were cancelled.")
 
@@ -105,53 +69,57 @@ def ask_exit():
             logger.info(f"Pending tasks: len={len(pending)}")
             asyncio.set_event_loop(loop)
             try:
+                #asyncio.ensure_future(cancel_all_tasks2(pending))
                 cancel_all_tasks(pending)
             except RuntimeError as e:
                 logger.error(f"Runtime Error: {e}")
 
 
-async def make_call(target_device, datadir):
+async def make_call(target_dashcam, datadir):
     delete_empty_folders(DATA_DIR)
     os.makedirs(datadir, exist_ok=True)
 
-    logger.debug("Starting a call to camera {}".format(target_device))
+    logger.debug("Starting a call to camera {}".format(target_dashcam))
 
     uri = WEBSOCKET_SERVER_FULL_URL
     async with websockets.connect(uri) as ws:
         logger.debug(f"Running loop {id(asyncio.get_running_loop())}")
 
-        task = asyncio.create_task(video_call(ws, target_device, datadir), name="video_call")
+        task = asyncio.create_task(video_call(ws, target_dashcam, datadir, processing_func_=process_dashcam_frame),
+                                   name="video_call")
         await task
-        await send_disconnect_message(ws, target_device)
+        await send_disconnect_message(ws, target_dashcam)
 
     logger.info(f"Websocket connection {id(ws)} is closing. Call has ended.")
 
 
-def run_async_task(loop, target_device, datadir):
-    loop.run_until_complete(make_call(target_device, datadir))
+def run_async_task(loop, target_dashcam, datadir):
+    loop.run_until_complete(make_call(target_dashcam, datadir))
     loop.stop()
     logger.info(f"Event loop {id(loop)} is closed.")
-    set_has_pending_tasks(False)
 
 
-def display_fetched_image(container_placeholder, datadir):
+def display_fetched_image(container_placeholder, datadir, previous_files):
     with container_placeholder.container():
         st.markdown(f"Current time is {datetime.now().strftime('%Y-%m-%d %H-%M')}")
-        try:
-            file = pathjoin(datadir, "test.png")
-            # file = pathjoin('images', "test.png")
-            if os.path.exists(file):
-                img = Image.open(file)
-                st.image(img, width=500)
-        except UnidentifiedImageError as e:
-            logger.error(f"Error: {e}")
-        time.sleep(0.5)
+        files = [x for x in os.listdir(datadir) if ".png" in x]
+        if len(files) > previous_files:
+            previous_files = len(files)
 
-        # provide_insights.get_insights(mode="stream",
-        #                              stream_url=st.session_state.stream_url,
-        #                              stream_name=st.session_state.stream_name,
-        #                              present_results_func=lambda x, y: present_results(x, y, forecast_step=1),
-        #                              update_every_n_frames=st.session_state.update_every_n_frames)
+            try:
+                file = pathjoin(datadir, files[-1])
+                if os.path.exists(file):
+                    results = get_insights(mode="files", full_filename=file, camera_id=st.session_state.target_dashcam)
+                    if results is not None:
+                        st.image(results["vehicle_detection_img"], width=500)
+
+            except UnidentifiedImageError as e:
+                logger.error(f"UnidentifiedImageError: {e}")
+            except AttributeError as e:
+                logger.error(f"AttributeError: {e}")
+
+        time.sleep(0.5)
+        return previous_files
 
 
 def delete_empty_folders(target_dir):
@@ -177,9 +145,13 @@ def delete_empty_folders(target_dir):
     return deleted
 
 
-def setup_dashcam_view():
-    initialize()
+def clear_jobs():
+    logger.debug("Stop button clicked.")
+    ask_exit()
+    set_value("is_running", False, reset=True)
 
+
+def setup_dashcam_view():
     st.markdown("### Input from Dashcam")
     st.markdown(configuration.DEMO_INSTRUCTIONS)
 
@@ -187,34 +159,45 @@ def setup_dashcam_view():
     with col1:
         radio_btn = st.selectbox("Select a camera and click the start button:", configuration.DASHCAM_IDS.keys(),
                                  index=0)
-        st.session_state.target_device = configuration.DASHCAM_IDS[radio_btn]
+        st.session_state.target_dashcam = configuration.DASHCAM_IDS[radio_btn]
 
-    exec_btn_placeholder = st.empty()
-    st.button("Refresh", key="refresh_btn_dashcam")
+    col3, col4, col5 = st.columns([0.3, 0.3, 0.4])
+    with col3:
+        exec_btn_placeholder = st.empty()
+    with col4:
+        refresh_btn = st.button("Refresh", key="refresh_btn_dashcam")
 
     container_placeholder = st.empty()
 
-    if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
-        on_start_button_click(True)
-        if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
-            logger.info("Pressed stop button...")
-            ask_exit()
+    if st.session_state.is_running:
+        clear_jobs()
 
-        logger.info("Pressed start button...")
+    if not st.session_state.is_running:
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+            logger.debug("Start button clicked.")
+            set_value("is_running", True)
+            exec_btn_placeholder.button("Stop", key="stop_btn_dashcam")
 
-    loop = make_new_loop()
+            loop = make_new_loop()
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        ctx = get_script_run_ctx()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                ctx = get_script_run_ctx()
 
-        datadir = os.path.join(DATA_DIR, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-        future = executor.submit(run_async_task, loop, st.session_state.target_device, datadir)
-        for t in executor._threads:
-            add_script_run_ctx(t, ctx)
+                datadir = os.path.join(DATA_DIR, "dashcam", st.session_state.target_dashcam,
+                                       datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
+                future = executor.submit(run_async_task, loop, st.session_state.target_dashcam, datadir)
+                for t in executor._threads:
+                    logger.debug(f"add_script_run_ctx Thread: {t}")
+                    add_script_run_ctx(t, ctx)
 
-        while future.running():
-            display_fetched_image(container_placeholder, datadir)
+                previous_files = 0
+                while future.running():
+                    try:
+                        previous_files = display_fetched_image(container_placeholder, datadir, previous_files)
+                    except FileNotFoundError as e:
+                        logger.error(f"FileNotFoundError: {e}")
+                        #break
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     setup_dashcam_view()

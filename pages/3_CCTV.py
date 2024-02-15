@@ -1,6 +1,6 @@
 import streamlit as st
 from utils import provide_insights
-from utils.common import present_results, on_start_button_click
+from utils.common import present_results, set_value
 
 
 def setup_cctv_view():
@@ -29,9 +29,9 @@ def setup_cctv_view():
 
     if not st.session_state.is_running:
         if exec_btn_placeholder.button("Fetch latest", key="start_btn_cctv"):
-            on_start_button_click(True)
+            set_value("is_running", True)
             if exec_btn_placeholder.button("Stop", key="stop_btn_cctv"):
-                #reset_values()
+                set_value("is_running", False, reset=True)
                 exec_btn_placeholder.empty()
 
             provide_insights.get_insights(mode="stream",

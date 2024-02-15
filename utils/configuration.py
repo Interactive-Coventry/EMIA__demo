@@ -103,8 +103,8 @@ OBJECT_DETECTION_DIR = pathjoin(RUNS_DIR, "detect", "exp", "")
 DEFAULT_VEHICLE_FORECAST_FEATURES_DF = pathjoin(DEFAULT_DATASET_DIR, "vf_feature_df.csv")
 
 DEMO_INSTRUCTIONS = ("Click the start button to begin streaming from the selected camera. Click the stop button to end "
-                     "the stream. Wait for a few seconds for the dashcam to disconnect, then press stop again. The "
-                     "start button will be enabled after the stop button is pressed twice.")
+                     "the stream. Wait for a few seconds for the dashcam to disconnect, then press refresh. The "
+                     "start button will then be active.")
 
 DASHCAM_IDS = {"Camera 1": "6206af3f2ac0770155d598c1",
                "Camera 2": "6206af3f2ac0770155d598c1"}

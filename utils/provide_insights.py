@@ -1,4 +1,6 @@
 import warnings
+from datetime import datetime
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import libs.foxutils.utils.core_utils as core_utils
@@ -201,11 +203,14 @@ def get_insights(mode="files", **kwargs):
 
         current_datetime = get_target_datetime(image_file)
         img = {"image": cv2.imread(full_filename), "datetime": current_datetime}
-        image_file, folder, filepath, target_files = get_relevant_data(full_filename,
-                                                                       delete_previous_results=False,
-                                                                       history_length=HISTORY_LENGTH)
-
         return get_processing_results(img, camera_id=folder)
+
+    elif mode == "image":
+        image = kwargs["image"]
+        current_datetime = kwargs["current_datetime"]
+        camera_id = kwargs["camera_id"]
+        img = {"image": image, "datetime": current_datetime}
+        return get_processing_results(img, camera_id=camera_id)
 
     elif mode == "stream":
         stream_url = kwargs["stream_url"]
@@ -231,7 +236,7 @@ def get_insights(mode="files", **kwargs):
                     current_time = core_utils.get_current_datetime(tz=target_tz)
                     img = {"image": image, "datetime": current_time}
 
-                    results = get_processing_results(img, stream_name)
+                    results = get_processing_results(img, camera_id=stream_name)
                     present_results_func(container_placeholder, results)
                     gc.collect()
 
@@ -245,6 +250,15 @@ def get_insights(mode="files", **kwargs):
         st_frame.caption("Finished processing stream.")
         logger.info(f"Finished processing stream.")
         return
+
+
+def process_dashcam_frame(img, dashcam_id, datadir, count):
+    current_datetime = core_utils.get_current_datetime(tz=target_tz)
+    current_datetime = core_utils.convert_datetime_to_string(current_datetime)
+    save_path = pathjoin(datadir, dashcam_id + "_" + current_datetime + ".png")
+    img.save(save_path)
+    logger.info(f"Saved video frame {count} at {save_path}")
+
 
 
 ############################## Test ######################################

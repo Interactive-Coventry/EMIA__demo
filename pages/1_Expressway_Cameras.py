@@ -11,8 +11,7 @@ from emia_utils.process_utils import make_weather_df
 from utils.configuration import TRAFFIC_IMAGES_PATH
 from utils.map_utils import get_expressway_camera_info
 from utils import provide_insights
-from utils.common import get_target_image, present_results, append_weather_data_to_database, on_start_button_click, \
-    set_value
+from utils.common import get_target_image, present_results, append_weather_data_to_database, set_value
 from utils.provide_insights import HISTORY_STEP, get_target_datetime
 
 logger = core_utils.get_logger("app.static_camera_view")
@@ -59,19 +58,19 @@ def setup_expressway_camera_view():
     default_index = available_cameras.index("1703")
     dashcam_source_btn = st.selectbox(label="Select input source", options=available_cameras,
                                       index=default_index, key="dashcam_source")
-
-    clear_jobs()
-
     exec_btn_placeholder = st.empty()
+
+    if st.session_state.is_running:
+        clear_jobs()
 
     if not st.session_state.is_running:
         if exec_btn_placeholder.button("Fetch latest", key="start_btn_static"):
-            print("Start button clicked.")
+            logger.debug("Start button clicked.")
             set_value("is_running", True)
-            if exec_btn_placeholder.button("Stop", key="stop_btn_static"):
-                clear_jobs()
+            exec_btn_placeholder.button("Stop", key="stop_btn_static")
 
-            target_camera_id = dashcam_source_btn
+            st.session_state.target_expressway_camera = dashcam_source_btn
+            target_camera_id = st.session_state.target_expressway_camera
             savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                                TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
             core_utils.mkdir_if_not_exist(savedir)

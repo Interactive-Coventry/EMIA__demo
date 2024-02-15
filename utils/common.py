@@ -36,16 +36,10 @@ def initialize_value(key, value):
 def initialize_session_state():
     initialize_value("is_running", False)
     initialize_value("conn", None)
-    initialize_value("has_pending_tasks", False)
-    initialize_value("target_device", None)
+    initialize_value("firebase_db", None)
+    initialize_value("target_dashcam", None)
+    initialize_value("target_expressway_camera", None)
     initialize_value("loop", None)
-    initialize_value("first_run", True)
-    initialize_value("is_calling", False)
-
-
-def on_start_button_click(is_running):
-    st.session_state.is_running = is_running
-    logger.debug(f'Button clicked so that is_running={st.session_state.is_running}')
 
 
 @st.cache_resource
@@ -63,10 +57,10 @@ def init_connection():
 
 
 if USES_FIREBASE:
-    firebase_db = database_utils.init_firebase()
-    logger.info(f"Firebase connect: Connecting to {firebase_db}")
+    st.session_state.firebase_db = database_utils.init_firebase()
+    logger.info(f"Firebase connect: Connecting to {st.session_state.firebase_db}")
 else:
-    conn = init_connection()
+    st.session_state.conn = init_connection()
 
 
 def append_weather_data_to_database(weather_df):
@@ -75,9 +69,9 @@ def append_weather_data_to_database(weather_df):
         row_dict = weather_df.iloc[0].to_dict()
         row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
         row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(firebase_db, row_dict, "weather", "id")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "weather", "id")
     else:
-        database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=conn)
+        database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=st.session_state.conn)
 
 
 def append_vehicle_counts_data_to_database(vehicle_counts_df):
@@ -86,9 +80,9 @@ def append_vehicle_counts_data_to_database(vehicle_counts_df):
         row_dict = vehicle_counts_df.iloc[0].to_dict()
         row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
         row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(firebase_db, row_dict, "vehicle_counts", "id")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
     else:
-        database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True, conn=conn)
+        database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True, conn=st.session_state.conn)
 
 
 def read_vehicle_forecast_data_from_database(current_date, camera_id, history_length):
@@ -97,7 +91,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     if USES_FIREBASE:
         current_date = core_utils.convert_datetime_to_string(current_date)
         params = [["datetime", "<=", current_date]]
-        weather_data = firebase_db.collection("weather") \
+        weather_data = st.session_state.firebase_db.collection("weather") \
             .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
             .order_by("datetime", direction=firestore.Query.ASCENDING) \
             .limit_to_last(batch_size).get()
@@ -107,7 +101,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
 
         params = [["datetime", "<=", current_date],
                   ["camera_id", "==", str(camera_id)]]
-        vehicle_counts_data = firebase_db.collection("vehicle_counts") \
+        vehicle_counts_data = st.session_state.firebase_db.collection("vehicle_counts") \
             .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
             .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2])) \
             .order_by("datetime", direction=firestore.Query.ASCENDING) \
@@ -119,12 +113,12 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
         params[-1].append(fetch_top)
-        df_weather = database_utils.read_table_with_select("weather", params, conn=conn)
+        df_weather = database_utils.read_table_with_select("weather", params, conn=st.session_state.conn)
 
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
                   ["camera_id", "=", database_utils.enclose_in_quotes(str(camera_id))]]
         params[-1].append(fetch_top)
-        df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=conn)
+        df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
 
     latest_weather_info = df_weather.iloc[0].copy()
     df_features = prepare_features_for_vehicle_counts(df_vehicles, df_weather, dropna=True,

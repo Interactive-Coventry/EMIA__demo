@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import re
 import warnings
 import streamlit as st
@@ -60,7 +59,7 @@ async def send_disconnect_message(ws, target_device):
         logger.info(f"Can't send disconnect because connection is already closed: {e}")
 
 
-async def video_call(ws_, target_device_, datadir_):
+async def video_call(ws_, target_device_, datadir_, processing_func_) -> None:
     candidate_queue = asyncio.Queue(maxsize=QUEUE_SIZE)
 
     pcs = set()
@@ -109,11 +108,12 @@ async def video_call(ws_, target_device_, datadir_):
     class Consumer(MediaStreamTrack):
         kind = "video"
 
-        def __init__(self, track, datadir):
+        def __init__(self, track, datadir, processing_func):
             super().__init__()
             self.track = track
             self.count = 0
             self.datadir = datadir
+            self.processing_func = processing_func
 
         async def recv(self):
             frame = await self.track.recv()
@@ -121,10 +121,8 @@ async def video_call(ws_, target_device_, datadir_):
 
             if (self.count == 1) or (self.count % SAVE_EVERY_N_FRAMES == 0):
                 img = frame.to_image()
-                #img.save(os.path.join(self.datadir, "test" + str(self.count) + ".png"))
-                save_path = os.path.join(self.datadir, "test" + ".png")
-                img.save(save_path)
-                logger.info(f"Saved video frame {self.count} at {save_path}")
+                results = self.processing_func(img, self.datadir, self.count)
+                print(results)
                 await asyncio.sleep(0.5)
 
             logger.debug(f"Retrieved video frame {self.count} {frame}")
@@ -134,8 +132,8 @@ async def video_call(ws_, target_device_, datadir_):
 
             return frame
 
-    async def consume_video(track, datadir):
-        cons = Consumer(track, datadir)
+    async def consume_video(track, datadir, processing_func):
+        cons = Consumer(track, datadir, processing_func)
 
         while True:
             try:
@@ -153,15 +151,13 @@ async def video_call(ws_, target_device_, datadir_):
 
     @pc.on('track')
     async def on_track(track):
-        logger.info(f"On Track is on")
-
-        datadir = datadir_
+        logger.debug(f"On Track is on")
 
         if track.kind == 'audio':
             asyncio.ensure_future(consume_audio(track))
 
         elif track.kind == 'video':
-            asyncio.ensure_future(consume_video(track, datadir))
+            asyncio.ensure_future(consume_video(track, datadir_, processing_func_))
 
         @track.on("ended")
         async def on_ended():
@@ -390,5 +386,4 @@ async def video_call(ws_, target_device_, datadir_):
     try:
         await run_video_call(ws_, target_device_)
     except asyncio.CancelledError:
-        await asyncio.sleep(1)
         logger.info("Stop button was pressed in the main program.")
