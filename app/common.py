@@ -128,70 +128,76 @@ def get_target_image(camera_selection, image_file=None):
 
 
 def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
-    with container_placeholder.container():
-        st.markdown("### Results")
-        st.markdown(f"##### Current Datetime: {outputs['target_datetime'].strftime('%Y/%m/%d, %H:%M:%S')} "
-                    f"({core_utils.settings['RUN']['timezone']})")
-        col3, col4 = st.columns(2)
-        with col3:
-            st.markdown("##### Object Detection:")
-            st.image(outputs["vehicle_detection_img"], use_column_width=True)
+    if outputs is not None:
+        with container_placeholder.container():
+            st.markdown("### Results")
+            st.markdown(f"##### Current Datetime: {outputs['target_datetime'].strftime('%Y/%m/%d, %H:%M:%S')} "
+                        f"({core_utils.settings['RUN']['timezone']})")
+            col3, col4 = st.columns(2)
+            with col3:
+                st.markdown("##### Object Detection:")
+                st.image(outputs["vehicle_detection_img"], use_column_width=True)
 
-            if SHOW_WEATHER_LABEL:
-                st.markdown("##### Weather Label:")
-                for k, v in outputs["weather_detection_label"].items():
-                    st.progress(v, text=k)
-
-        with col4:
-            st.markdown("##### Anomaly Heatmap:")
-            st.image(outputs["anomaly_detection_img"], use_column_width=True)
-
-            if SHOW_ANOMALY_LABEL:
-                st.markdown("##### Anomaly Label:")
-                show_general_label = True
-                if show_general_label:
-                    for k, v in outputs["anomaly_detection_label"].items():
-                        tt = k.split("(")[0]
-                        break
-                    st.markdown(tt)
-                else:
-                    for k, v in outputs["anomaly_detection_label"].items():
+                if SHOW_WEATHER_LABEL:
+                    st.markdown("##### Weather Label:")
+                    for k, v in outputs["weather_detection_label"].items():
                         st.progress(v, text=k)
 
-        st.markdown("##### Weather Information:")
-        weather_info = outputs["weather_info"].transpose()
-        st.dataframe(weather_info, use_container_width=True)
+            with col4:
+                st.markdown("##### Anomaly Heatmap:")
+                st.image(outputs["anomaly_detection_img"], use_column_width=True)
 
-        st.markdown("##### Detected Vehicles:")
-        vehicles_df = outputs["vehicle_detection_df"].copy()
-        vehicles_df.drop(columns=["datetime"], inplace=True)
-        st.dataframe(vehicles_df, use_container_width=True)
+                if SHOW_ANOMALY_LABEL:
+                    st.markdown("##### Anomaly Label:")
+                    show_general_label = True
+                    if show_general_label:
+                        for k, v in outputs["anomaly_detection_label"].items():
+                            tt = k.split("(")[0]
+                            break
+                        st.markdown(tt)
+                    else:
+                        for k, v in outputs["anomaly_detection_label"].items():
+                            st.progress(v, text=k)
 
-        st.markdown(f"##### Vehicle Forecasting (in the next {forecast_step} {HISTORY_STEP_UNIT}):")
-        if SHOW_VEHICLE_FORECAST_GRAPH:
-            try:
-                vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
+            st.markdown("##### Weather Information:")
+            weather_info = outputs["weather_info"].transpose()
+            st.dataframe(weather_info, use_container_width=True)
+
+            st.markdown("##### Detected Vehicles:")
+            vehicles_df = outputs["vehicle_detection_df"].copy()
+            vehicles_df.drop(columns=["datetime"], inplace=True)
+            st.dataframe(vehicles_df, use_container_width=True)
+
+            st.markdown(f"##### Vehicle Forecasting (in the next {forecast_step} {HISTORY_STEP_UNIT}):")
+            if SHOW_VEHICLE_FORECAST_GRAPH:
+                try:
+                    vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
+                    vf_predictions = outputs["vehicle_forecast"]["predictions"]
+                    vf_df = vf_df[["total_vehicles"]]
+                    vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
+                    vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
+                    pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
+                    if HISTORY_STEP_UNIT != "minutes":
+                        raise NotImplementedError("Only minutes are supported for now.")
+                    pred_value = round(vf_predictions[0])
+                    target_val = vf_df.iloc[len(vf_df) - 1]
+                    vf_df.loc[vf_df.index[len(vf_df) - 1]] = [target_val[0], target_val[0]]
+                    vf_df.loc[pred_datetime, :] = [None, pred_value]
+                    st.line_chart(vf_df, use_container_width=True)
+                    logger.debug(vf_df)
+                except TypeError as e:
+                    logger.debug(f"TypeError: {e}")
+                    st.markdown(f"No vehicle forecasting results available, because no previous values are available. "
+                                f"Wait so that at least {HISTORY_STEP} images are captured.")
+            else:
+                vf_df = outputs["vehicle_forecast"]["previous_counts"]
                 vf_predictions = outputs["vehicle_forecast"]["predictions"]
-                vf_df = vf_df[["total_vehicles"]]
-                vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
-                vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
-                pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
-                if HISTORY_STEP_UNIT != "minutes":
-                    raise NotImplementedError("Only minutes are supported for now.")
-                pred_value = round(vf_predictions[0])
-                target_val = vf_df.iloc[len(vf_df) - 1]
-                vf_df.loc[vf_df.index[len(vf_df) - 1]] = [target_val[0], target_val[0]]
-                vf_df.loc[pred_datetime, :] = [None, pred_value]
-                st.line_chart(vf_df, use_container_width=True)
-                logger.debug(vf_df)
-            except TypeError:
-                st.markdown(f"No vehicle forecasting results available, because no previous values are available. "
-                            f"Wait so that at least {HISTORY_STEP} images are captured.")
-        else:
-            vf_df = outputs["vehicle_forecast"]["previous_counts"]
-            vf_predictions = outputs["vehicle_forecast"]["predictions"]
-            vehicle_prediction_str = "-Previous Counts: [" \
-                                     + ", ".join([str(round(x)) for x in vf_df["total_vehicles"].values]) \
-                                     + "]\n\n-Predicted Count (next 5min): " + str(round(vf_predictions[0]))
+                vehicle_prediction_str = "-Previous Counts: [" \
+                                         + ", ".join([str(round(x)) for x in vf_df["total_vehicles"].values]) \
+                                         + "]\n\n-Predicted Count (next 5min): " + str(round(vf_predictions[0]))
 
-            st.markdown(vehicle_prediction_str)
+                st.markdown(vehicle_prediction_str)
+    else:
+        with container_placeholder.container():
+            logger.info("No output results during testing.")
+            st.markdown("No results available during testing.")

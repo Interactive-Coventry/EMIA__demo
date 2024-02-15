@@ -10,10 +10,9 @@ from PIL import Image, UnidentifiedImageError, ImageFile
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
+from app.common import on_start_button_click
 from utils import configuration
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
-from . import provide_insights
-from .common import present_results, reset_values
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 logger = get_logger("dashcam-view")
@@ -33,6 +32,23 @@ if "loop" not in st.session_state:
 
 if "first_run" not in st.session_state:
     st.session_state.first_run = True
+
+
+def initialize():
+    if "is_calling" not in st.session_state:
+        st.session_state.is_calling = False
+
+    if "has_pending_tasks" not in st.session_state:
+        st.session_state.has_pending_tasks = False
+
+    if "target_device" not in st.session_state:
+        st.session_state.target_device = None
+
+    if "loop" not in st.session_state:
+        st.session_state.loop = None
+
+    if "first_run" not in st.session_state:
+        st.session_state.first_run = True
 
 
 def is_first_run():
@@ -63,7 +79,8 @@ def cancel_all_tasks(pending):
     for task in pending:
         try:
             task.cancel()
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
+            logger.debug(f"asyncio.CancelledError: {e}")
             logger.info(f"Task {task} is cancelled.")
     logger.info("All pending tasks were cancelled.")
 
@@ -115,7 +132,6 @@ def run_async_task(loop, target_device, datadir):
     loop.stop()
     logger.info(f"Event loop {id(loop)} is closed.")
     set_has_pending_tasks(False)
-    st.rerun()
 
 
 def display_fetched_image(container_placeholder, datadir):
@@ -162,7 +178,7 @@ def delete_empty_folders(target_dir):
 
 
 def setup_dashcam_view():
-    reset_values()
+    initialize()
 
     st.markdown("### Input from Dashcam")
     st.markdown(configuration.DEMO_INSTRUCTIONS)
@@ -173,39 +189,28 @@ def setup_dashcam_view():
                                  index=0)
         st.session_state.target_device = configuration.DASHCAM_IDS[radio_btn]
 
-    col3, col4, col5 = st.columns([0.3, 0.3, 0.4], gap="small")
-    with col3:
-        start_button = st.button("Start Call", key="start_call", on_click=on_button_click, args=(True,),
-                                 disabled=st.session_state.has_pending_tasks)
-    with col4:
-        stop_button = st.button("Stop", key="stop_call", on_click=on_button_click, args=(False,),
-                                disabled=not st.session_state.has_pending_tasks)
+    exec_btn_placeholder = st.empty()
+    st.button("Refresh", key="refresh_btn_dashcam")
+
     container_placeholder = st.empty()
 
-    if st.session_state.is_calling:
-        logger.info("Pressed start button...")
-        loop = make_new_loop()
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            ctx = get_script_run_ctx()
-
-            datadir = os.path.join(DATA_DIR, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-            future = executor.submit(run_async_task, loop, st.session_state.target_device, datadir)
-            for t in executor._threads:
-                add_script_run_ctx(t, ctx)
-
-            while future.running():
-                display_fetched_image(container_placeholder, datadir)
-
-    else:
-        if not is_first_run():
+    if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+        on_start_button_click(True)
+        if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
             logger.info("Pressed stop button...")
-            with container_placeholder.container():
-                st.info("Wait until streaming has ended.")
             ask_exit()
 
-        else:
-            st.session_state.first_run = False
+        logger.info("Pressed start button...")
 
+    loop = make_new_loop()
 
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        ctx = get_script_run_ctx()
 
+        datadir = os.path.join(DATA_DIR, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
+        future = executor.submit(run_async_task, loop, st.session_state.target_device, datadir)
+        for t in executor._threads:
+            add_script_run_ctx(t, ctx)
+
+        while future.running():
+            display_fetched_image(container_placeholder, datadir)

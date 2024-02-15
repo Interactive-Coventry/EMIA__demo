@@ -49,7 +49,7 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
 
 def clear_jobs():
     clear_all_jobs()
-    reset_values()
+    #reset_values()
     logger.info(f"Terminated all schedulers.")
 
 
@@ -92,6 +92,6 @@ def setup_expressway_camera_view():
                     run_pending()
                     time.sleep(1)
             except AttributeError as e:# st.session_state has no attribute "is_running". Did you forget to initialize it?
-                print(e)
+                logger.info(f"AttributeError: {e}")
 
 

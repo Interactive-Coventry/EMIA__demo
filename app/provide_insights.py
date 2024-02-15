@@ -1,6 +1,9 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+import libs.foxutils.utils.core_utils as core_utils
+logger = core_utils.get_logger("app.provide_insights")
+
 from os.path import join as pathjoin
 from os import sep
 import json
@@ -12,7 +15,6 @@ from PIL import Image
 import gc
 from emia_utils.process_utils import make_vehicle_counts_df
 from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
-import libs.foxutils.utils.core_utils as core_utils
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image
@@ -22,7 +24,6 @@ import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
 from utils.configuration import DEFAULT_FILEPATH
 
-logger = core_utils.get_logger("app.provide_insights")
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -112,42 +113,45 @@ def process_frame(img_dict, device, camera_id=None):
     orig_dim = pil_img.size  # (width, height)
     logger.debug(f"Original image size: {orig_dim}")
 
-    logger.debug("------------------Run object detection------------------")
-    od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt, device)
-    od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
-    od_row = pd.DataFrame(od_dfs.iloc[-1]).T
-    od_row["datetime"] = [target_datetime]
-    od_row["camera_id"] = [camera_id]
-    vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
-    vc_df.set_index("datetime", inplace=True, drop=True)
-    append_vehicle_counts_data_to_database(vc_df)
-    results_dict["object_detection"] = od.set_results(od_img, od_row)
-
-    logger.debug("------------------Run weather detection------------------")
-    wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
-
-    logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
-    results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
-
-    logger.debug("------------------Run anomaly detection------------------")
-    ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
-    results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
-    # image_utils.write_image("heatmap.jpg", ad_config.project.path, results_dict["anomaly_detection"]["heat_map_image"],
-    #                        ad.HEATMAP_FOLDER_NAME)
-    logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
-
-    logger.debug("------------------Run vehicle flow prediction------------------")
-    vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id, HISTORY_LENGTH)
-    if len(vf_feature_df) < HISTORY_LENGTH:
-        logger.debug(f"Not enough history values for calculation")
-        results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
+    if IS_TEST:
+        logger.info("Test mode is on. Skipping model inference.")
     else:
-        vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df,
-                                              HISTORY_LENGTH)
-        results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
-        logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
+        logger.debug("------------------Run object detection------------------")
+        od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt, device)
+        od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
+        od_row = pd.DataFrame(od_dfs.iloc[-1]).T
+        od_row["datetime"] = [target_datetime]
+        od_row["camera_id"] = [camera_id]
+        vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
+        vc_df.set_index("datetime", inplace=True, drop=True)
+        append_vehicle_counts_data_to_database(vc_df)
+        results_dict["object_detection"] = od.set_results(od_img, od_row)
 
-    results_dict["weather_info"] = weather_info
+        logger.debug("------------------Run weather detection------------------")
+        wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
+
+        logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
+        results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
+
+        logger.debug("------------------Run anomaly detection------------------")
+        ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
+        results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
+        # image_utils.write_image("heatmap.jpg", ad_config.project.path, results_dict["anomaly_detection"]["heat_map_image"],
+        #                        ad.HEATMAP_FOLDER_NAME)
+        logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
+
+        logger.debug("------------------Run vehicle flow prediction------------------")
+        vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id, HISTORY_LENGTH)
+        if len(vf_feature_df) < HISTORY_LENGTH:
+            logger.debug(f"Not enough history values for calculation")
+            results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
+        else:
+            vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df,
+                                                  HISTORY_LENGTH)
+            results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
+            logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
+
+        results_dict["weather_info"] = weather_info
 
     return results_dict
 
@@ -158,33 +162,36 @@ def get_processing_results(img, camera_id=None):
 
     results = process_frame(img, device=DEVICE, camera_id=camera_id)
 
-    vf_df = results["vehicle_forecasting"]["dataframe"]
-    vf_predictions = results["vehicle_forecasting"]["predictions"]
+    if IS_TEST:
+        return None
+    else:
+        vf_df = results["vehicle_forecasting"]["dataframe"]
+        vf_predictions = results["vehicle_forecasting"]["predictions"]
 
-    wd_label_str = get_label_and_prob_string(results["weather_detection"]["label"],
-                                             results["weather_detection"]["prob"])
-    ad_label_str = get_label_and_prob_string(results["anomaly_detection"]["label"],
-                                             results["anomaly_detection"]["prob"])
-    weather_info = results["weather_info"]
-    weather_info = weather_info[["weather", "description", "temp", "feels_like", "pressure", "humidity", "wind_speed",
-                                 "clouds_all"]]
-    weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temp",
-                         "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
-                         "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
-    weather_info = weather_info.to_frame()
+        wd_label_str = get_label_and_prob_string(results["weather_detection"]["label"],
+                                                 results["weather_detection"]["prob"])
+        ad_label_str = get_label_and_prob_string(results["anomaly_detection"]["label"],
+                                                 results["anomaly_detection"]["prob"])
+        weather_info = results["weather_info"]
+        weather_info = weather_info[["weather", "description", "temp", "feels_like", "pressure", "humidity", "wind_speed",
+                                     "clouds_all"]]
+        weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temp",
+                             "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
+                             "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
+        weather_info = weather_info.to_frame()
 
-    outputs = {
-        "target_datetime": results["input"]["datetime"],
-        "vehicle_detection_img": results["object_detection"]["image"],
-        "vehicle_detection_df": results["object_detection"]["dataframe"],
-        "weather_detection_label": {wd_label_str: results["weather_detection"]["prob"]},
-        "anomaly_detection_label": {ad_label_str: results["anomaly_detection"]["prob"]},
-        "anomaly_detection_img": results["anomaly_detection"]["heat_map"],
-        "vehicle_forecast": {"previous_counts": vf_df, "predictions": vf_predictions},
-        "weather_info": weather_info,
-    }
+        outputs = {
+            "target_datetime": results["input"]["datetime"],
+            "vehicle_detection_img": results["object_detection"]["image"],
+            "vehicle_detection_df": results["object_detection"]["dataframe"],
+            "weather_detection_label": {wd_label_str: results["weather_detection"]["prob"]},
+            "anomaly_detection_label": {ad_label_str: results["anomaly_detection"]["prob"]},
+            "anomaly_detection_img": results["anomaly_detection"]["heat_map"],
+            "vehicle_forecast": {"previous_counts": vf_df, "predictions": vf_predictions},
+            "weather_info": weather_info,
+        }
 
-    return outputs
+        return outputs
 
 
 def get_insights(mode="files", **kwargs):

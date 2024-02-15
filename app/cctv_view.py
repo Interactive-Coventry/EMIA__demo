@@ -4,8 +4,6 @@ from .common import present_results, reset_values, on_start_button_click
 
 
 def setup_cctv_view():
-    reset_values()
-
     st.markdown("### Input from CCTV livestream")
 
     camera_choices = ["Camera 1 (JP)"]
@@ -30,10 +28,10 @@ def setup_cctv_view():
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_cctv"):
             on_start_button_click(True)
-            if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
-                reset_values()
+            if exec_btn_placeholder.button("Stop", key="stop_btn_cctv"):
+                #reset_values()
                 exec_btn_placeholder.empty()
 
             provide_insights.get_insights(mode="stream",

@@ -147,6 +147,7 @@ async def video_call(ws_, target_device_, datadir_):
                 break
 
             except MediaStreamError as e:
+                logger.debug(f"Media Stream Error: {e}")
                 track.stop()
                 break
 
@@ -192,7 +193,8 @@ async def video_call(ws_, target_device_, datadir_):
 
         try:
             answered
-        except NameError:
+        except NameError as e:
+            logger.info(f"NameError: {e}")
             answered = False
 
         try:
