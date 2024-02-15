@@ -3,7 +3,7 @@ start_time = time.time()
 import streamlit as st
 from os.path import join as pathjoin
 st.set_page_config(page_title="EMIA Dashboard", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
-                   initial_sidebar_state="collapsed")
+                   initial_sidebar_state="expanded")
 
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 from libs.foxutils.utils.core_utils import logger

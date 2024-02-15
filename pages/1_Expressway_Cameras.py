@@ -2,6 +2,9 @@ from os import sep
 from os.path import join as pathjoin
 import pandas as pd
 import streamlit as st
+st.set_page_config(page_title="Expressway Cameras", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
+
 from schedule import every, repeat, run_pending
 from schedule import clear as clear_all_jobs
 import time

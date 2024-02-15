@@ -1,4 +1,7 @@
 import streamlit as st
+from os.path import join as pathjoin
+st.set_page_config(page_title="CCTV", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
 from utils import provide_insights
 from utils.common import present_results, set_value
 

@@ -4,16 +4,16 @@ import os
 import time
 from datetime import datetime
 from os.path import join as pathjoin
-
-import pytz
 import streamlit as st
+st.set_page_config(page_title="Dashcams", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
 import websockets
-from PIL import Image, UnidentifiedImageError, ImageFile
-from libs.foxutils.utils import core_utils
+from PIL import UnidentifiedImageError, ImageFile
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
-from utils.common import set_value
+
 from utils import configuration
+from utils.common import set_value
 from utils.provide_insights import get_insights, process_dashcam_frame
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 
