@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError, ImageFile
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from app.common import on_start_button_click
+from utils.common import on_start_button_click
 from utils import configuration
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 

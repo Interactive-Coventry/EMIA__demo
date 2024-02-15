@@ -1,5 +1,4 @@
 from os.path import join as pathjoin
-
 from libs.foxutils.utils import core_utils
 
 DEFAULT_IMAGE_FILE = "1703_20230913183132.jpg"

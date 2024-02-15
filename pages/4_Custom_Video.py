@@ -4,9 +4,9 @@ import streamlit as st
 from streamlit_folium import st_folium
 from libs.foxutils.utils import core_utils
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
-from . import provide_insights
-from .provide_insights import IS_TEST
-from .common import present_results, on_start_button_click, reset_values
+from utils import provide_insights
+from utils.provide_insights import IS_TEST
+from utils.common import present_results, on_start_button_click
 
 
 def setup_video_view():

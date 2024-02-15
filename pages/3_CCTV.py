@@ -1,6 +1,6 @@
 import streamlit as st
-from . import provide_insights
-from .common import present_results, reset_values, on_start_button_click
+from utils import provide_insights
+from utils.common import present_results, on_start_button_click
 
 
 def setup_cctv_view():

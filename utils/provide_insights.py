@@ -14,7 +14,7 @@ import pandas as pd
 from PIL import Image
 import gc
 from emia_utils.process_utils import make_vehicle_counts_df
-from app.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
+from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image

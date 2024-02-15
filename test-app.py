@@ -9,7 +9,7 @@ def test():
     Test functionalities for provide_insights using default images.
     """
 
-    from app import provide_insights
+    from utils import provide_insights
 
     results = provide_insights.test_analyze()
     print('Test success.')
@@ -22,7 +22,7 @@ def analyze(filename: str = typer.Argument(help="Target image filename."),
     Get insights for a target image using data for the past N time steps as history.
     """
 
-    from app import provide_insights
+    from utils import provide_insights
 
     results = provide_insights.analyze(filename, delete_previous_results=False,
                                        history_length=history_length)
