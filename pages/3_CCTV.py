@@ -40,3 +40,7 @@ def setup_cctv_view():
                                           present_results_func=present_results,
                                           update_every_n_frames=st.session_state.update_every_n_frames)
 
+
+if __name__ == "__main__":
+    setup_cctv_view()
+

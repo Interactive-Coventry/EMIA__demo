@@ -4,11 +4,13 @@ import streamlit as st
 
 st.set_page_config(page_title="EMIA Dashboard", page_icon="👋")
 
-
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 from libs.foxutils.utils.core_utils import logger
+from utils.common import initialize_session_state
+initialize_session_state()
 
 init_bar.progress(30, text="Initialization in progress. Loading models. This will take some time.")
+import utils.provide_insights
 
 init_bar.progress(100, text="Finished initialization.")
 init_bar.empty()

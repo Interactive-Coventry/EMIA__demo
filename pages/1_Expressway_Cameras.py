@@ -8,12 +8,13 @@ import time
 from emia_utils import download_utils
 from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import make_weather_df
-
 from utils.configuration import TRAFFIC_IMAGES_PATH
 from utils.map_utils import get_expressway_camera_info
 from utils import provide_insights
-from utils.common import get_target_image, present_results, append_weather_data_to_database, on_start_button_click
+from utils.common import get_target_image, present_results, append_weather_data_to_database, on_start_button_click, \
+    set_value
 from utils.provide_insights import HISTORY_STEP, get_target_datetime
+
 logger = core_utils.get_logger("app.static_camera_view")
 
 
@@ -48,7 +49,7 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
 
 def clear_jobs():
     clear_all_jobs()
-    #reset_values()
+    set_value("is_running", False, reset=True)
     logger.info(f"Terminated all schedulers.")
 
 
@@ -65,7 +66,8 @@ def setup_expressway_camera_view():
 
     if not st.session_state.is_running:
         if exec_btn_placeholder.button("Fetch latest", key="start_btn_static"):
-            on_start_button_click(True)
+            print("Start button clicked.")
+            set_value("is_running", True)
             if exec_btn_placeholder.button("Stop", key="stop_btn_static"):
                 clear_jobs()
 
@@ -80,6 +82,7 @@ def setup_expressway_camera_view():
 
             @repeat(every(HISTORY_STEP).minutes)
             def job():
+                logger.debug(f"Running job for camera {target_camera_id}.")
                 fetch_current_data(target_camera_id)
                 run_info_text_placeholder.text("Processing...")
                 run_process(target_camera_id, savedir, preview_container_placeholder, results_container_placeholder)
@@ -90,7 +93,9 @@ def setup_expressway_camera_view():
                 while "is_running" in st.session_state and st.session_state.is_running:
                     run_pending()
                     time.sleep(1)
-            except AttributeError as e:# st.session_state has no attribute "is_running". Did you forget to initialize it?
+            except AttributeError as e:
                 logger.info(f"AttributeError: {e}")
 
 
+if __name__ == "__main__":
+    setup_expressway_camera_view()

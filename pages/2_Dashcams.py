@@ -147,7 +147,7 @@ def display_fetched_image(container_placeholder, datadir):
             logger.error(f"Error: {e}")
         time.sleep(0.5)
 
-        #provide_insights.get_insights(mode="stream",
+        # provide_insights.get_insights(mode="stream",
         #                              stream_url=st.session_state.stream_url,
         #                              stream_name=st.session_state.stream_name,
         #                              present_results_func=lambda x, y: present_results(x, y, forecast_step=1),
@@ -214,3 +214,7 @@ def setup_dashcam_view():
 
         while future.running():
             display_fetched_image(container_placeholder, datadir)
+
+
+if __name__ == "main":
+    setup_dashcam_view()

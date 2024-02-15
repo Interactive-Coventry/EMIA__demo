@@ -20,9 +20,27 @@ SHOW_WEATHER_LABEL = False
 SHOW_VEHICLE_FORECAST_GRAPH = True
 
 
-def reset_values():
-    st.session_state.is_running = False
-    logger.info(f'Reset so that is_running={st.session_state.is_running}')
+def set_value(key, value, reset=False):
+    st.session_state[key] = value
+    if reset:
+        logger.info(f'Reset so that {key}={st.session_state[key]}')
+    else:
+        logger.info(f'Set so that {key}={st.session_state[key]}')
+
+
+def initialize_value(key, value):
+    if key not in st.session_state:
+        set_value(key, value, reset=False)
+
+
+def initialize_session_state():
+    initialize_value("is_running", False)
+    initialize_value("conn", None)
+    initialize_value("has_pending_tasks", False)
+    initialize_value("target_device", None)
+    initialize_value("loop", None)
+    initialize_value("first_run", True)
+    initialize_value("is_calling", False)
 
 
 def on_start_button_click(is_running):
