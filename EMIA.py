@@ -29,7 +29,7 @@ st.markdown(
     """
     EMIA is a digital twin framework built specifically for
     Machine Learning and Data Science projects.
-    **👈 Select a demo from the sidebar** to see some examples
+    **👈 Select a module from the sidebar** to see some examples
     of what it can do!
     ### Want to learn more?
     - Check out [InteractiveCoventry.com/EMIA](https://www.interactivecoventry.com/emia/#main)
@@ -50,6 +50,6 @@ st.sidebar.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.sidebar.success("Select a demo above.")
+st.sidebar.success("Select a module above.")
 
 

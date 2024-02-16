@@ -71,7 +71,8 @@ def split_filename_folder(filename):
 
 
 def get_target_datetime(filename):
-    current_datetime_str = filename.split("_")[-1].replace(".jpg", "")
+    filename = filename.replace(".png", "").replace(".jpg", "")
+    current_datetime_str = filename.split("_")[-1]
     current_datetime = core_utils.convert_fully_connected_string_to_datetime(current_datetime_str)
     return current_datetime
 
@@ -100,7 +101,7 @@ def get_relevant_data(full_filename, delete_previous_results=False, history_leng
     return image_file, folder, filepath, target_files
 
 
-def process_frame(img_dict, device, camera_id=None):
+def process_frame(img_dict, device, camera_id=None, target_datetime=None):
     if isinstance(img_dict, dict):
         target_datetime = img_dict["datetime"]
         cv2_img = img_dict["image"]
@@ -200,7 +201,6 @@ def get_insights(mode="files", **kwargs):
     if mode == "files":
         full_filename = kwargs["full_filename"]
         image_file, folder, _ = split_filename_folder(full_filename)
-
         current_datetime = get_target_datetime(image_file)
         img = {"image": cv2.imread(full_filename), "datetime": current_datetime}
         return get_processing_results(img, camera_id=folder)
@@ -253,8 +253,9 @@ def get_insights(mode="files", **kwargs):
 
 
 def process_dashcam_frame(img, dashcam_id, datadir, count):
+    #logger.debug(f"Fetching img from dashcam {dashcam_id} at {datadir} at count {count}")
     current_datetime = core_utils.get_current_datetime(tz=target_tz)
-    current_datetime = core_utils.convert_datetime_to_string(current_datetime)
+    current_datetime = core_utils.convert_datetime_to_fully_connected_string(current_datetime)
     save_path = pathjoin(datadir, dashcam_id + "_" + current_datetime + ".png")
     img.save(save_path)
     logger.info(f"Saved video frame {count} at {save_path}")

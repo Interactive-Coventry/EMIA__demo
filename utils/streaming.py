@@ -108,11 +108,12 @@ async def video_call(ws_, target_device_, datadir_, processing_func_) -> None:
     class Consumer(MediaStreamTrack):
         kind = "video"
 
-        def __init__(self, track, datadir, processing_func):
+        def __init__(self, track, datadir, target_device, processing_func):
             super().__init__()
             self.track = track
             self.count = 0
             self.datadir = datadir
+            self.dashcam_id = target_device
             self.processing_func = processing_func
 
         async def recv(self):
@@ -121,8 +122,7 @@ async def video_call(ws_, target_device_, datadir_, processing_func_) -> None:
 
             if (self.count == 1) or (self.count % SAVE_EVERY_N_FRAMES == 0):
                 img = frame.to_image()
-                results = self.processing_func(img, self.datadir, self.count)
-                print(results)
+                self.processing_func(img, self.dashcam_id, self.datadir, self.count)
                 await asyncio.sleep(0.5)
 
             logger.debug(f"Retrieved video frame {self.count} {frame}")
@@ -132,8 +132,8 @@ async def video_call(ws_, target_device_, datadir_, processing_func_) -> None:
 
             return frame
 
-    async def consume_video(track, datadir, processing_func):
-        cons = Consumer(track, datadir, processing_func)
+    async def consume_video(track, datadir, target_device, processing_func):
+        cons = Consumer(track, datadir, target_device, processing_func)
 
         while True:
             try:
@@ -157,7 +157,7 @@ async def video_call(ws_, target_device_, datadir_, processing_func_) -> None:
             asyncio.ensure_future(consume_audio(track))
 
         elif track.kind == 'video':
-            asyncio.ensure_future(consume_video(track, datadir_, processing_func_))
+            asyncio.ensure_future(consume_video(track, datadir_, target_device_, processing_func_))
 
         @track.on("ended")
         async def on_ended():

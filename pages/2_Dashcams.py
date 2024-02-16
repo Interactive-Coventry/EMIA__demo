@@ -11,9 +11,8 @@ import websockets
 from PIL import UnidentifiedImageError, ImageFile
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
-
 from utils import configuration
-from utils.common import set_value
+from utils.common import set_value, present_results
 from utils.provide_insights import get_insights, process_dashcam_frame
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 
@@ -101,7 +100,9 @@ def run_async_task(loop, target_dashcam, datadir):
 
 def display_fetched_image(container_placeholder, datadir, previous_files):
     with container_placeholder.container():
-        st.markdown(f"Current time is {datetime.now().strftime('%Y-%m-%d %H-%M')}")
+        st.markdown(f"Current time is {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        results_container_placeholder = st.empty()
+
         files = [x for x in os.listdir(datadir) if ".png" in x]
         if len(files) > previous_files:
             previous_files = len(files)
@@ -109,14 +110,13 @@ def display_fetched_image(container_placeholder, datadir, previous_files):
             try:
                 file = pathjoin(datadir, files[-1])
                 if os.path.exists(file):
-                    results = get_insights(mode="files", full_filename=file, camera_id=st.session_state.target_dashcam)
-                    if results is not None:
-                        st.image(results["vehicle_detection_img"], width=500)
+                    outputs = get_insights(mode="files", full_filename=file, camera_id=st.session_state.target_dashcam)
+                    if outputs is not None:
+                        #st.image(outputs["vehicle_detection_img"], width=500)
+                        present_results(results_container_placeholder, outputs)
 
             except UnidentifiedImageError as e:
                 logger.error(f"UnidentifiedImageError: {e}")
-            except AttributeError as e:
-                logger.error(f"AttributeError: {e}")
 
         time.sleep(0.5)
         return previous_files
@@ -196,7 +196,7 @@ def setup_dashcam_view():
                         previous_files = display_fetched_image(container_placeholder, datadir, previous_files)
                     except FileNotFoundError as e:
                         logger.error(f"FileNotFoundError: {e}")
-                        #break
+
 
 
 if __name__ == "__main__":
