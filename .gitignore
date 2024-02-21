@@ -158,7 +158,7 @@ cython_debug/
 
 # Custom
 # config.ini
-data/*
+
 .streamlit/secrets.toml
 gpu-39-venv/*
 venv/*
