@@ -141,7 +141,8 @@ def delete_empty_folders(target_dir):
                 os.rmdir(current_dir)
                 deleted.add(current_dir)
         except FileNotFoundError as e:
-            logger.error(f"FileNotFoundError: {e}")
+            #logger.debug(f"FileNotFoundError: {e}")
+            pass
 
     logger.debug(f"Deleted folders: {deleted}")
     return deleted
