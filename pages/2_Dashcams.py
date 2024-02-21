@@ -198,7 +198,7 @@ def setup_dashcam_view():
                     try:
                         previous_files = display_fetched_image(container_placeholder, datadir, previous_files)
                     except FileNotFoundError as e:
-                        logger.error(f"FileNotFoundError: {e}")
+                        logger.debug(f"FileNotFoundError: {e}")
 
 
 
