@@ -29,10 +29,10 @@ imgaug==0.4.0
 jsonargparse==4.25.0
 kornia==0.6.9
 omegaconf==2.3.0
-opencv_python==4.8.1.78
-opencv_python_headless==4.8.1.78
+opencv_python==4.9.0.80
+opencv_python_headless==4.9.0.80
 openvino==2023.0.0
-Pillow==10.0.1
+Pillow==10.2.0
 pytorch_lightning==1.9.5
 setuptools==65.5.1
 tifffile==2023.9.26

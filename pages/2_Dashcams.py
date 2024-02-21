@@ -99,27 +99,25 @@ def run_async_task(loop, target_dashcam, datadir):
 
 
 def display_fetched_image(container_placeholder, datadir, previous_files):
-    with container_placeholder.container():
-        st.markdown(f"Current time is {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        results_container_placeholder = st.empty()
+    files = [x for x in os.listdir(datadir) if ".png" in x]
+    if len(files) > previous_files:
+        previous_files = len(files)
 
-        files = [x for x in os.listdir(datadir) if ".png" in x]
-        if len(files) > previous_files:
-            previous_files = len(files)
+        try:
+            file = pathjoin(datadir, files[-1])
+            time.sleep(0.1)
+            if os.path.exists(file):
+                outputs = get_insights(mode="files", full_filename=file, camera_id=st.session_state.target_dashcam)
+                if outputs is not None:
+                    #with container_placeholder:
+                    #    st.image(outputs["vehicle_detection_img"], width=500, caption=str(len(files)))
+                    present_results(container_placeholder, outputs)
 
-            try:
-                file = pathjoin(datadir, files[-1])
-                if os.path.exists(file):
-                    outputs = get_insights(mode="files", full_filename=file, camera_id=st.session_state.target_dashcam)
-                    if outputs is not None:
-                        #st.image(outputs["vehicle_detection_img"], width=500)
-                        present_results(results_container_placeholder, outputs)
+        except UnidentifiedImageError as e:
+            logger.error(f"UnidentifiedImageError: {e}")
 
-            except UnidentifiedImageError as e:
-                logger.error(f"UnidentifiedImageError: {e}")
-
-        time.sleep(0.5)
-        return previous_files
+    time.sleep(0.5)
+    return previous_files
 
 
 def delete_empty_folders(target_dir):
