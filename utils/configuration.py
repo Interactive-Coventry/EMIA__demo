@@ -109,4 +109,7 @@ DEMO_INSTRUCTIONS = ("Click the start button to begin streaming from the selecte
 DASHCAM_IDS = {"Camera 1": "6206af3f2ac0770155d598c1",
                "Camera 2": "6206af3f2ac0770155d598c1"}
 
+DASHCAM_NAMES = {"6206af3f2ac0770155d598c1": "test_dashcam_1",
+                 }
+
 TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"

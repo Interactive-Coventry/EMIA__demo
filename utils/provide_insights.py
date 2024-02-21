@@ -101,7 +101,7 @@ def get_relevant_data(full_filename, delete_previous_results=False, history_leng
     return image_file, folder, filepath, target_files
 
 
-def process_frame(img_dict, device, camera_id=None, target_datetime=None):
+def process_frame(img_dict, device, camera_id=None):
     if isinstance(img_dict, dict):
         target_datetime = img_dict["datetime"]
         cv2_img = img_dict["image"]
@@ -200,8 +200,11 @@ def get_processing_results(img, camera_id=None):
 def get_insights(mode="files", **kwargs):
     if mode == "files":
         full_filename = kwargs["full_filename"]
+        camera_id = kwargs["camera_id"]
         image_file, folder, _ = split_filename_folder(full_filename)
         current_datetime = get_target_datetime(image_file)
+        if camera_id is not None:
+            folder = camera_id
         img = {"image": cv2.imread(full_filename), "datetime": current_datetime}
         return get_processing_results(img, camera_id=folder)
 
