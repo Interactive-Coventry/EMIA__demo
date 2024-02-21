@@ -23,4 +23,4 @@ EXPOSE 8531
 
 HEALTHCHECK CMD curl --fail http://localhost:8531/_stcore/health
 
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8531", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "EMIA.py", "--server.port=8531", "--server.address=0.0.0.0"]

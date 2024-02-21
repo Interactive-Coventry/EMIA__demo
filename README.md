@@ -16,8 +16,8 @@ pinned: false
 - Base repo: [Github | Interactive-Coventry/EMIA__demo](https://github.com/Interactive-Coventry/EMIA__demo/)
 
   - To run with Streamlit:
-    - Run in a terminal with `streamlit run .\app.py` and open `http://localhost:8501/` in your browser.
-    - For custom port run with `streamlit run .\app.py --server.port 8531` and open `http://localhost:8531/` in your browser.
+    - Run in a terminal with `streamlit run .\EMIA.py` and open `http://localhost:8501/` in your browser.
+    - For custom port run with `streamlit run .\EMIA.py --server.port 8531` and open `http://localhost:8531/` in your browser.
 
 ## How to run the demo with Streamlit in a browser with GUI
 ```
