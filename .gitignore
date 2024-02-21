@@ -158,8 +158,7 @@ cython_debug/
 
 # Custom
 # config.ini
-data/openweathermap/*
-data/datamall/*
+data/*
 .streamlit/secrets.toml
 gpu-39-venv/*
 venv/*
@@ -168,3 +167,4 @@ assets/pgadmin_sql_queries.txt
 config_files/credentials.json
 config_files/pydrive_settings.yaml
 custom_models_temp/*
+log.txt
