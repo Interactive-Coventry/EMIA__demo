@@ -1,4 +1,5 @@
 from os.path import join as pathjoin
+from libs.foxutils.utils import core_utils
 
 DEFAULT_IMAGE_FILE = "1703_20230913183132.jpg"
 DEFAULT_CAMERA_ID = "1703"
@@ -93,8 +94,22 @@ EXPRESSWAY_CAMERA_IDS = ["1001",
                          "9705",
                          "9706"]
 
-DEFAULT_DATASET_DIR = pathjoin("data", "test", DEFAULT_CAMERA_ID, "")
+DATASETS_DIR = core_utils.settings["DIRECTORY"]["datasets_dir"]
+DEFAULT_DATASET_DIR = pathjoin(DATASETS_DIR, "test", DEFAULT_CAMERA_ID, "")
 DEFAULT_FILEPATH = pathjoin(DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE)
 
-OBJECT_DETECTION_DIR = pathjoin("runs", "detect", "exp", "")
+RUNS_DIR = core_utils.settings["DIRECTORY"]["runs_dir"]
+OBJECT_DETECTION_DIR = pathjoin(RUNS_DIR, "detect", "exp", "")
 DEFAULT_VEHICLE_FORECAST_FEATURES_DF = pathjoin(DEFAULT_DATASET_DIR, "vf_feature_df.csv")
+
+DEMO_INSTRUCTIONS = ("Click the start button to begin streaming from the selected camera. Click the stop button to end "
+                     "the stream. Wait for a few seconds for the dashcam to disconnect, then press refresh. The "
+                     "start button will then be active.")
+
+DASHCAM_IDS = {"Camera 1": "6206af3f2ac0770155d598c1",
+               "Camera 2": "6206af3f2ac0770155d598c1"}
+
+DASHCAM_NAMES = {"6206af3f2ac0770155d598c1": "test_dashcam_1",
+                 }
+
+TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"

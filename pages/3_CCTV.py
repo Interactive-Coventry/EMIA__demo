@@ -1,11 +1,12 @@
 import streamlit as st
-from . import provide_insights
-from .common import present_results, reset_values, on_start_button_click
+from os.path import join as pathjoin
+st.set_page_config(page_title="CCTV", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
+from utils import provide_insights
+from utils.common import present_results, set_value
 
 
 def setup_cctv_view():
-    reset_values()
-
     st.markdown("### Input from CCTV livestream")
 
     camera_choices = ["Camera 1 (JP)"]
@@ -30,10 +31,10 @@ def setup_cctv_view():
     exec_btn_placeholder = st.empty()
 
     if not st.session_state.is_running:
-        if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
-            on_start_button_click(True)
-            if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
-                reset_values()
+        if exec_btn_placeholder.button("Fetch latest", key="start_btn_cctv"):
+            set_value("is_running", True)
+            if exec_btn_placeholder.button("Stop", key="stop_btn_cctv"):
+                set_value("is_running", False, reset=True)
                 exec_btn_placeholder.empty()
 
             provide_insights.get_insights(mode="stream",
@@ -41,4 +42,8 @@ def setup_cctv_view():
                                           stream_name=st.session_state.stream_name,
                                           present_results_func=present_results,
                                           update_every_n_frames=st.session_state.update_every_n_frames)
+
+
+if __name__ == "__main__":
+    setup_cctv_view()
 

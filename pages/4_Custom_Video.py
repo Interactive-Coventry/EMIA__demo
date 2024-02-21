@@ -1,21 +1,17 @@
 from os.path import join as pathjoin
-
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
-
 from libs.foxutils.utils import core_utils
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
+from utils import provide_insights
+from utils.provide_insights import IS_TEST
+from utils.common import present_results, set_value
+st.set_page_config(page_title="EMIA Dashboard", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
 
-from . import provide_insights
-from .provide_insights import IS_TEST
-from .common import present_results, on_start_button_click, reset_values
-
-
-def setup_dashcam_view():
-    reset_values()
-
-    st.markdown("### Input from Dashcam")
+def setup_video_view():
+    st.markdown("### Input from Video")
 
     if IS_TEST:
         camera_choices = ["Camera 1", "Camera 2", "Camera 3"]
@@ -75,10 +71,10 @@ def setup_dashcam_view():
         exec_btn_placeholder = st.empty()
 
         if not st.session_state.is_running:
-            if exec_btn_placeholder.button("Fetch latest", key="start_btn_dashcam"):
-                on_start_button_click(True)
-                if exec_btn_placeholder.button("Stop", key="stop_btn_dashcam"):
-                    reset_values()
+            if exec_btn_placeholder.button("Fetch latest", key="start_btn_video"):
+                set_value("is_running", True)
+                if exec_btn_placeholder.button("Stop", key="stop_btn_video"):
+                    set_value("is_running", False, reset=True)
                     exec_btn_placeholder.empty()
 
                 provide_insights.get_insights(mode="stream",
@@ -88,3 +84,5 @@ def setup_dashcam_view():
                                               update_every_n_frames=st.session_state.update_every_n_frames)
 
 
+if __name__ == "__main__":
+    setup_video_view()

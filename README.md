@@ -4,7 +4,7 @@ colorFrom: yellow
 colorTo: yellow
 sdk: streamlit
 sdk_version: 1.22.0
-app_file: app.py
+app_file: EMIA.py
 pinned: false
 ---
 
@@ -16,12 +16,12 @@ pinned: false
 - Base repo: [Github | Interactive-Coventry/EMIA__demo](https://github.com/Interactive-Coventry/EMIA__demo/)
 
   - To run with Streamlit:
-    - Run in a terminal with `streamlit run .\streamlit-app.py` and open `http://localhost:8501/` in your browser.
-
+    - Run in a terminal with `streamlit run .\EMIA.py` and open `http://localhost:8501/` in your browser.
+    - For custom port run with `streamlit run .\EMIA.py --server.port 8531` and open `http://localhost:8531/` in your browser.
 
 ## How to run the demo with Streamlit in a browser with GUI
 ```
-$ streamlit run .\streamlit-app.py
+$ streamlit run .\app.py
 ```
 ![demo_1.png](assets/demo_1.png)
 ![demo_2.png](assets/demo_2.png)
@@ -50,3 +50,27 @@ $ streamlit run .\streamlit-app.py
 - db_mode: local or streamlit or firebase
 
 Details in config_files/
+
+## For docker 
+Requires python 3.9
+
+```
+$ mkdir emia__demo
+$ cd emia__demo
+$ touch Dockerfile
+```
+- Check and copy into the Dockerfile, then 
+```
+$ docker system prune # Clean up , carefull because it cleans all 
+$ docker build -t emia__demo . 
+$ docker run -p 8531:8531 emia__demo 
+```
+
+If you get error ' Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?' then use 
+```
+$ sudo apt-get clean
+```
+or use the --no-cache flag in the build command.
+```
+$ docker build --no-cache -t emia__demo . 
+```

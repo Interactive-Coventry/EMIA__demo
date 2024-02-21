@@ -1,25 +1,23 @@
 from os import sep
 from os.path import join as pathjoin
-
 import pandas as pd
 import streamlit as st
+st.set_page_config(page_title="Expressway Cameras", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
+                   initial_sidebar_state="expanded")
+
 from schedule import every, repeat, run_pending
 from schedule import clear as clear_all_jobs
 import time
-
 from emia_utils import download_utils
 from libs.foxutils.utils import core_utils
 from emia_utils.process_utils import make_weather_df
+from utils.configuration import TRAFFIC_IMAGES_PATH
 from utils.map_utils import get_expressway_camera_info
-from . import provide_insights
-from .common import get_target_image, present_results, append_weather_data_to_database, reset_values, \
-    on_start_button_click
-from .provide_insights import HISTORY_STEP, get_target_datetime
+from utils import provide_insights
+from utils.common import get_target_image, present_results, append_weather_data_to_database, set_value
+from utils.provide_insights import HISTORY_STEP, get_target_datetime
 
-import logging
-logger = logging.getLogger("app.static_camera_view")
-
-TRAFFIC_IMAGES_PATH = "ltaodataservice/Traffic-Imagesv2"
+logger = core_utils.get_logger("app.static_camera_view")
 
 
 def fetch_current_data(target_camera_id):
@@ -47,13 +45,13 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
             st.markdown("##### Expressway camera locations:")
             st.pyplot(map_fig)
 
-    outputs = provide_insights.get_insights(mode="files", full_filename=target_file)
+    outputs = provide_insights.get_insights(mode="files", full_filename=target_file, camera_id=None)
     present_results(results_container_placeholder, outputs)
 
 
 def clear_jobs():
     clear_all_jobs()
-    reset_values()
+    set_value("is_running", False, reset=True)
     logger.info(f"Terminated all schedulers.")
 
 
@@ -63,18 +61,19 @@ def setup_expressway_camera_view():
     default_index = available_cameras.index("1703")
     dashcam_source_btn = st.selectbox(label="Select input source", options=available_cameras,
                                       index=default_index, key="dashcam_source")
-
-    clear_jobs()
-
     exec_btn_placeholder = st.empty()
+
+    if st.session_state.is_running:
+        clear_jobs()
 
     if not st.session_state.is_running:
         if exec_btn_placeholder.button("Fetch latest", key="start_btn_static"):
-            on_start_button_click(True)
-            if exec_btn_placeholder.button("Stop", key="stop_btn_static"):
-                clear_jobs()
+            logger.debug("Start button clicked.")
+            set_value("is_running", True)
+            exec_btn_placeholder.button("Stop", key="stop_btn_static")
 
-            target_camera_id = dashcam_source_btn
+            st.session_state.target_expressway_camera = dashcam_source_btn
+            target_camera_id = st.session_state.target_expressway_camera
             savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                                TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
             core_utils.mkdir_if_not_exist(savedir)
@@ -85,6 +84,7 @@ def setup_expressway_camera_view():
 
             @repeat(every(HISTORY_STEP).minutes)
             def job():
+                logger.debug(f"Running job for camera {target_camera_id}.")
                 fetch_current_data(target_camera_id)
                 run_info_text_placeholder.text("Processing...")
                 run_process(target_camera_id, savedir, preview_container_placeholder, results_container_placeholder)
@@ -95,7 +95,9 @@ def setup_expressway_camera_view():
                 while "is_running" in st.session_state and st.session_state.is_running:
                     run_pending()
                     time.sleep(1)
-            except AttributeError as e:# st.session_state has no attribute "is_running". Did you forget to initialize it?
-                print(e)
+            except AttributeError as e:
+                logger.info(f"AttributeError: {e}")
 
 
+if __name__ == "__main__":
+    setup_expressway_camera_view()
