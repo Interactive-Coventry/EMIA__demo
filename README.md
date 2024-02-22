@@ -64,6 +64,9 @@ $ touch Dockerfile
 $ docker system prune # Clean up , carefull because it cleans all 
 $ docker build -t emia__demo . 
 $ docker run -p 8531:8531 emia__demo 
+$ docker exec -it bold_kepler bash 
+$ docker exec bold_kepler mkdir -p /emia__demo/.streamlit
+$ docker cp secrets.toml bold_kepler:/emia__demo/.streamlit/secrets.toml
 ```
 
 If you get error ' Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?' then use 
