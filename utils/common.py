@@ -80,7 +80,11 @@ def append_vehicle_counts_data_to_database(vehicle_counts_df):
         row_dict = vehicle_counts_df.iloc[0].to_dict()
         row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
         row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
+        try:
+            database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
+        except AttributeError as e:
+            logger.debug(f"Table vehicle_counts , row {row_dict}.")
+            logger.error(f"AttributeError: {e}")
     else:
         database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True, conn=st.session_state.conn)
 
