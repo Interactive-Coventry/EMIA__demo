@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install $(cat packages.txt) --fix-missing -y
 RUN pip3 install -r requirements.txt
 
 EXPOSE 8531
+EXPOSE 9090
 
 HEALTHCHECK CMD curl --fail http://localhost:8531/_stcore/health
 
