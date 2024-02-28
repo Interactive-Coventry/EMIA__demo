@@ -110,8 +110,8 @@ def display_fetched_image(container_placeholder, datadir, previous_files):
             file = pathjoin(datadir, files[-1])
             time.sleep(0.1)
             if os.path.exists(file):
-                camera_id = DASHCAM_NAMES[st.session_state.target_dashcam]
-                outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id)
+                camera_id = st.session_state.target_dashcam
+                outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id, get_location=True)
                 if outputs is not None:
                     #with container_placeholder:
                     #    st.image(outputs["vehicle_detection_img"], width=500, caption=str(len(files)))

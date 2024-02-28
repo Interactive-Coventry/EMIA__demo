@@ -1,8 +1,5 @@
 import warnings
-from datetime import datetime
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
 import libs.foxutils.utils.core_utils as core_utils
 logger = core_utils.get_logger("app.provide_insights")
 
@@ -15,8 +12,10 @@ import streamlit as st
 import pandas as pd
 from PIL import Image
 import gc
+import requests
 from emia_utils.process_utils import make_vehicle_counts_df
-from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database
+from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database, \
+    append_camera_location_data_to_database
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image
@@ -39,6 +38,10 @@ RUN_PER_FRAME = True
 IS_TEST = bool(eval(core_utils.settings["RUN"]["is_test"]))
 logger.debug(f"Is test: {IS_TEST}")
 logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
+
+WEBSOCKET_SERVER_URL = core_utils.settings["SERVER"]["url"]
+DATA_SERVER_PORT = int(core_utils.settings["SERVER"]["data_port"])
+DATA_SERVER_FULL_URL = f"https://{WEBSOCKET_SERVER_URL}:{DATA_SERVER_PORT}"
 
 #############Load models#####
 if IS_TEST:
@@ -159,11 +162,54 @@ def process_frame(img_dict, device, camera_id=None):
     return results_dict
 
 
-def get_processing_results(img, camera_id=None):
+def get_dashcam_location(dashcam_id, current_datetime):
+    uri = DATA_SERVER_FULL_URL + "/cars"
+    bearer_token = st.secrets["database"]["bearer_token"]
+    headers = {
+        'Authorization': f'Bearer {bearer_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get(uri, headers=headers)
+
+    if response.status_code == 200:
+        cam_list = response.json()
+        cam_info = [x for x in cam_list if x["_id"] == dashcam_id]
+        if len(cam_info) == 0:
+            logger.warning(f"Dashcam {dashcam_id} not found in the database.")
+            return None
+        location = cam_info[0]["location"]
+        logger.debug(f"Location of dashcam {dashcam_id}: {location}")
+        df_coord = pd.DataFrame({"camera_id": [dashcam_id], "lat": [location["lng"]], "lng": [location["lat"]],
+                                 "datetime": [current_datetime]})
+        df_coord.set_index("datetime", inplace=True, drop=True)
+        return df_coord
+    else:
+        # Request failed
+        logger.debug(f"Dashcam location request failed with status code {response.status_code}")
+        logger.debug(response.text)  # Print the error message if any
+        return None
+
+
+def get_processing_results(img, camera_id=None, get_location=False):
     if camera_id is None:
         camera_id = 'NA'
 
     results = process_frame(img, device=DEVICE, camera_id=camera_id)
+
+    if get_location:
+        if isinstance(img, dict):
+            target_datetime = img["datetime"]
+        else:
+            target_datetime = core_utils.get_current_datetime(tz=target_tz)
+        target_datetime = target_datetime.replace(tzinfo=None)
+        location = get_dashcam_location(camera_id, current_datetime=target_datetime)
+        if location is not None:
+            append_camera_location_data_to_database(location)
+        else:
+            location = pd.DataFrame({"camera_id": [camera_id], "lat": [37], "lng": [22],
+                                     "datetime": [target_datetime]})
+    else:
+        location = None
 
     if IS_TEST:
         return None
@@ -192,6 +238,7 @@ def get_processing_results(img, camera_id=None):
             "anomaly_detection_img": results["anomaly_detection"]["heat_map"],
             "vehicle_forecast": {"previous_counts": vf_df, "predictions": vf_predictions},
             "weather_info": weather_info,
+            "location": location,
         }
 
         return outputs
@@ -201,19 +248,21 @@ def get_insights(mode="files", **kwargs):
     if mode == "files":
         full_filename = kwargs["full_filename"]
         camera_id = kwargs["camera_id"]
+        get_location = kwargs["get_location"]
         image_file, folder, _ = split_filename_folder(full_filename)
         current_datetime = get_target_datetime(image_file)
         if camera_id is not None:
             folder = camera_id
         img = {"image": cv2.imread(full_filename), "datetime": current_datetime}
-        return get_processing_results(img, camera_id=folder)
+        return get_processing_results(img, camera_id=folder, get_location=get_location)
 
     elif mode == "image":
         image = kwargs["image"]
         current_datetime = kwargs["current_datetime"]
         camera_id = kwargs["camera_id"]
+        get_location = kwargs["get_location"]
         img = {"image": image, "datetime": current_datetime}
-        return get_processing_results(img, camera_id=camera_id)
+        return get_processing_results(img, camera_id=camera_id, get_location=get_location)
 
     elif mode == "stream":
         stream_url = kwargs["stream_url"]

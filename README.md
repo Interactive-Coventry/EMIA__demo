@@ -21,7 +21,7 @@ pinned: false
 
 ## How to run the demo with Streamlit in a browser with GUI
 ```
-$ streamlit run .\app.py
+$ streamlit run .\EMIA.py
 ```
 ![demo_1.png](assets/demo_1.png)
 ![demo_2.png](assets/demo_2.png)
