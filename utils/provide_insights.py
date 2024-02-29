@@ -179,7 +179,7 @@ def get_dashcam_location(dashcam_id, current_datetime):
             return None
         location = cam_info[0]["location"]
         logger.debug(f"Location of dashcam {dashcam_id}: {location}")
-        df_coord = pd.DataFrame({"camera_id": [dashcam_id], "lat": [location["lng"]], "lng": [location["lat"]],
+        df_coord = pd.DataFrame({"camera_id": [dashcam_id], "lat": [location["lat"]], "lng": [location["lng"]],
                                  "datetime": [current_datetime]})
         df_coord.set_index("datetime", inplace=True, drop=True)
         return df_coord
