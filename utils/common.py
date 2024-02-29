@@ -81,7 +81,8 @@ def append_camera_location_data_to_database(location_df):
     if USES_FIREBASE:
         location_df.reset_index(inplace=True, drop=False)
         row_dict = location_df.iloc[0].to_dict()
-        row_dict["datetime"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
+        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
+        row_dict["datetime"] = row_dict["id"]
         database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams", "id")
     else:
         database_utils.append_df_to_table(location_df, "dashcams", append_only_new=True,
