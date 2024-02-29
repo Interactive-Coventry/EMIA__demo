@@ -28,6 +28,7 @@ TURNS_SERVER_CREDENTIAL = settings["TURN_SERVER"]["credential"]
 SAVE_EVERY_N_FRAMES = int(settings["STREAM"]["save_every_n_frames"])
 TIMEOUT_AT_N_FRAMES = int(settings["STREAM"]["timeout_at_n_frames"])
 
+
 def get_ice_servers():
     try:
         turn_server = RTCIceServer(urls=TURN_SERVER_URL,

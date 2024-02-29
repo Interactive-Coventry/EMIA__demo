@@ -21,7 +21,7 @@ pinned: false
 
 ## How to run the demo with Streamlit in a browser with GUI
 ```
-$ streamlit run .\app.py
+$ streamlit run .\EMIA.py
 ```
 ![demo_1.png](assets/demo_1.png)
 ![demo_2.png](assets/demo_2.png)
@@ -68,6 +68,7 @@ $ docker exec -it bold_kepler bash
 $ docker exec bold_kepler mkdir -p /emia__demo/.streamlit
 $ docker cp secrets.toml bold_kepler:/emia__demo/.streamlit/secrets.toml
 ```
+Location of packages: /usr/local/lib/python3.9/site-packages/
 
 If you get error ' Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?' then use 
 ```

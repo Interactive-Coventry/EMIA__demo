@@ -45,7 +45,7 @@ def run_process(target_camera_id, savedir, preview_container_placeholder, result
             st.markdown("##### Expressway camera locations:")
             st.pyplot(map_fig)
 
-    outputs = provide_insights.get_insights(mode="files", full_filename=target_file, camera_id=None)
+    outputs = provide_insights.get_insights(mode="files", full_filename=target_file, camera_id=None, get_location=False)
     present_results(results_container_placeholder, outputs)
 
 

@@ -8,6 +8,9 @@ from emia_utils.process_utils import prepare_features_for_vehicle_counts
 from emia_utils import database_utils
 from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
+from libs.foxutils.utils.display_and_plot import plot_markers_on_map
+from streamlit_folium import folium_static
+
 from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE
 from utils.map_utils import print_expressway_camera_locations
 
@@ -74,13 +77,28 @@ def append_weather_data_to_database(weather_df):
         database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=st.session_state.conn)
 
 
+def append_camera_location_data_to_database(location_df):
+    if USES_FIREBASE:
+        location_df.reset_index(inplace=True, drop=False)
+        row_dict = location_df.iloc[0].to_dict()
+        row_dict["datetime"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams", "id")
+    else:
+        database_utils.append_df_to_table(location_df, "dashcams", append_only_new=True,
+                                          conn=st.session_state.conn, append_index=True)
+
+
 def append_vehicle_counts_data_to_database(vehicle_counts_df):
     if USES_FIREBASE:
         vehicle_counts_df.reset_index(inplace=True, drop=False)
         row_dict = vehicle_counts_df.iloc[0].to_dict()
         row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
         row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
+        try:
+            database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
+        except AttributeError as e:
+            logger.debug(f"Table vehicle_counts , row {row_dict}.")
+            logger.error(f"AttributeError: {e}")
     else:
         database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True, conn=st.session_state.conn)
 
@@ -124,7 +142,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     df_features = prepare_features_for_vehicle_counts(df_vehicles, df_weather, dropna=True,
                                                       include_weather_description=True)
     df_features = df_features.iloc[-history_length:]
-    logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
+    #logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
     return df_features, latest_weather_info
 
 
@@ -145,6 +163,20 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
             st.markdown("### Results")
             st.markdown(f"##### Current Datetime: {outputs['target_datetime'].strftime('%Y/%m/%d, %H:%M:%S')} "
                         f"({core_utils.settings['RUN']['timezone']})")
+
+            if outputs["location"] is not None:
+                location = outputs["location"]
+                col1, col2 = st.columns(2)
+                with col1:
+                    m = plot_markers_on_map(None, location, label_column="camera_id")
+                    folium_static(m, height=200, width=200)
+                    logger.debug(f"Finished plotting markers on map.")
+                    logger.debug(f"Location: {outputs['location']}")
+                with col2:
+                    lat = location.iloc[0]["lat"]
+                    lng = location.iloc[0]["lng"]
+                    st.markdown(f"#### Camera Location:  \n\nlatitude: {lat}  \n\nlongitude: {lng}")
+
             col3, col4 = st.columns(2)
             with col3:
                 st.markdown("##### Object Detection:")
@@ -196,9 +228,12 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                     vf_df.loc[vf_df.index[len(vf_df) - 1]] = [target_val[0], target_val[0]]
                     vf_df.loc[pred_datetime, :] = [None, pred_value]
                     st.line_chart(vf_df, use_container_width=True)
-                    logger.debug(vf_df)
+                    #logger.debug(vf_df)
+                except ValueError as e:
+                    pass
                 except TypeError as e:
                     logger.debug(f"TypeError: {e}")
+                    logger.debug("No vehicle forecasting results available")
                     st.markdown(f"No vehicle forecasting results available, because no previous values are available. "
                                 f"Wait so that at least {HISTORY_STEP} images are captured.")
             else:
