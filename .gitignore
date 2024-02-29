@@ -158,7 +158,9 @@ cython_debug/
 
 # Custom
 # config.ini
-data/*
+data/openweathermap
+data/datamall
+data/dashcam/*
 .streamlit/secrets.toml
 gpu-39-venv/*
 venv/*
