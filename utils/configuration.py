@@ -107,9 +107,9 @@ DEMO_INSTRUCTIONS = ("Click the start button to begin streaming from the selecte
                      "start button will then be active.")
 
 dashcam_ids = ["6206af3f2ac0770155d598c1",
-               "5ab96b1de369447f94c0a6ce",
-               "6206af3f2ac0770155d598c2"]
-dashcam_imeis = ["357730090001398", "351609080169660", ""]
+               "5b5649993e120205554b961c",
+               ]
+dashcam_imeis = ["357730090001398", "351609080169660"]
 
 DASHCAM_IDS = {"Camera " + str(i+1): x for (i, x) in enumerate(dashcam_ids)}
 DASHCAM_NAMES = {x: "test_dashcam_" + str(i+1) for (i, x) in enumerate(dashcam_ids)}
