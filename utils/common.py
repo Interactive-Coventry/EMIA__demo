@@ -249,3 +249,21 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
         with container_placeholder.container():
             logger.info("No output results during testing.")
             st.markdown("No results available during testing.")
+
+
+def setup_sidebar_info():
+    st.sidebar.markdown("""
+        <style>
+        [data-testid='stSidebarNav'] > ul {
+            min-height: 40vh;
+        } 
+        </style>
+        """, unsafe_allow_html=True)
+
+    st.sidebar.image("assets/InterCov-logo_web.jpg", width=200)
+    st.sidebar.markdown(
+        """[InteractiveCoventry.com/EMIA](https://www.interactivecoventry.com/emia/#main)
+        """
+    )
+
+    st.sidebar.image("assets/qr.png", width=150)

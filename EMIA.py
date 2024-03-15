@@ -9,7 +9,7 @@ st.set_page_config(page_title="EMIA Dashboard", page_icon=pathjoin('assets', 'fa
 
 init_bar = st.progress(0, text="Initialization in progress. Please wait.")
 from libs.foxutils.utils.core_utils import logger
-from utils.common import initialize_session_state
+from utils.common import initialize_session_state, setup_sidebar_info
 
 initialize_session_state()
 
@@ -24,15 +24,16 @@ elapsed_time = end_time - start_time
 logger.debug(f"Initialization elapsed time: {elapsed_time}seconds")
 
 st.markdown("# Digital Twin of Singapore")
-st.markdown("Describe the current situation on the road.")
-
+st.markdown("## EMIA Dashboard")
 st.markdown(
     """
-    EMIA is a digital twin framework built specifically for
-    Machine Learning and Data Science projects.
-    **👈 Select a module from the sidebar** to see some examples
-    of what it can do!
-
+    The EMIA PROJECT Epi-terrestrial Multi-modals Input Assimilation is a digital twin framework built specifically for
+    Machine Learning and Data Science projects. It can describe the current situation on the road.
+    """
+)
+st.success("**👈 Select a module from the sidebar** to see some examples of what it can do!")
+st.markdown(
+    """
     ### Available Demos
     - Expressway Cameras: Fetch images from expressway cameras API \n\n  
     - Dashcams: Fetch video stream from dashcam\n\n  
@@ -50,12 +51,4 @@ st.markdown(
 
 st.image("assets/qr.png", width=200)
 
-st.sidebar.markdown("""
-    <style>
-    [data-testid='stSidebarNav'] > ul {
-        min-height: 60vh;
-    } 
-    </style>
-    """, unsafe_allow_html=True)
-
-st.sidebar.success("Select a module above.")
+setup_sidebar_info()
