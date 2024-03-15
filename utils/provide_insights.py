@@ -2,6 +2,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import libs.foxutils.utils.core_utils as core_utils
 logger = core_utils.get_logger("app.provide_insights")
+DISABLE_PROSSECING = bool(eval(core_utils.settings["RUN"]["disable_processing"]))
 
 from os.path import join as pathjoin
 from os import sep
@@ -43,14 +44,36 @@ WEBSOCKET_SERVER_URL = core_utils.settings["SERVER"]["url"]
 DATA_SERVER_PORT = int(core_utils.settings["SERVER"]["data_port"])
 DATA_SERVER_FULL_URL = f"https://{WEBSOCKET_SERVER_URL}:{DATA_SERVER_PORT}"
 
+def get_auth_token():
+    uri = DATA_SERVER_FULL_URL + "/auth"
+    st.session_state["dashcam_bearer_token"] = st.secrets["database"]["bearer_token"]
+    headers = {
+        'email': st.secrets["streaming"]["server"]["username"],
+        'password': st.secrets["streaming"]["server"]["password"]
+    }
+    response = requests.get(uri, headers=headers)
+
+    if response.status_code == 200:
+        r = response.json()
+        if "token" in r:
+            st.session_state["dashcam_bearer_token"] = r["token"]
+            logger.info(f"Token for dashcam servers is {r['token']}")
+    else:
+        # Request failed
+        logger.info(f"Dashcam authentication request failed with status code {response.status_code}")
+        logger.info(response.text)  # Print the error message if any
+        return None
+
+
 #############Load models#####
-if IS_TEST:
+if IS_TEST or DISABLE_PROSSECING:
     vf_model, vf_scaler = None, None
     weather_class_model, weather_class_model_name = None, None
     ad_model, ad_tfms, ad_config = None, None, None
     ad_trainer = None
     od_model, od_opt = None, None
 else:
+    get_auth_token()
     logger.info("\n\n------------------Load Models------------------")
     vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
     weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
@@ -58,8 +81,7 @@ else:
         device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
     if not RUN_PER_FRAME:
         ad_trainer = ad_tfms
-    od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True,
-                                                                                        device=DEVICE)
+    od_model, od_opt = load_object_detection_model(save_img=True, save_txt=True, device=DEVICE)
     od_model.eval()
 
 logger.info("\n\n------------------Finished Loading Models------------------")
@@ -119,11 +141,11 @@ def process_frame(img_dict, device, camera_id=None):
     orig_dim = pil_img.size  # (width, height)
     logger.debug(f"Original image size: {orig_dim}")
 
-    if IS_TEST:
+    if IS_TEST or DISABLE_PROSSECING:
         logger.info("Test mode is on. Skipping model inference.")
     else:
         logger.debug("------------------Run object detection------------------")
-        od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt, device)
+        od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt, device)
         od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
         od_row = pd.DataFrame(od_dfs.iloc[-1]).T
         od_row["datetime"] = [target_datetime]
@@ -162,9 +184,15 @@ def process_frame(img_dict, device, camera_id=None):
     return results_dict
 
 
+
+
+
 def get_dashcam_location(dashcam_id, current_datetime):
     uri = DATA_SERVER_FULL_URL + "/cars"
-    bearer_token = st.secrets["database"]["bearer_token"]
+    if "dashcam_bearer_token" not in st.session_state:
+        get_auth_token()
+    bearer_token = st.session_state["dashcam_bearer_token"]
+    #bearer_token = st.secrets["database"]["bearer_token"]
     headers = {
         'Authorization': f'Bearer {bearer_token}',
         'Content-Type': 'application/json'
@@ -211,7 +239,7 @@ def get_processing_results(img, camera_id=None, get_location=False):
     else:
         location = None
 
-    if IS_TEST:
+    if IS_TEST or DISABLE_PROSSECING:
         return None
     else:
         vf_df = results["vehicle_forecasting"]["dataframe"]

@@ -14,7 +14,8 @@ from emia_utils.process_utils import make_weather_df
 from utils.configuration import TRAFFIC_IMAGES_PATH
 from utils.map_utils import get_expressway_camera_info
 from utils import provide_insights
-from utils.common import get_target_image, present_results, append_weather_data_to_database, set_value
+from utils.common import get_target_image, present_results, append_weather_data_to_database, set_value, \
+    setup_sidebar_info
 from utils.provide_insights import HISTORY_STEP, get_target_datetime
 
 logger = core_utils.get_logger("app.static_camera_view")
@@ -101,3 +102,4 @@ def setup_expressway_camera_view():
 
 if __name__ == "__main__":
     setup_expressway_camera_view()
+    setup_sidebar_info()

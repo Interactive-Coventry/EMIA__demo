@@ -15,7 +15,7 @@ from PIL import UnidentifiedImageError, ImageFile
 from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from utils import configuration
-from utils.common import set_value, present_results
+from utils.common import set_value, present_results, setup_sidebar_info
 from utils.provide_insights import get_insights, process_dashcam_frame
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 
@@ -111,7 +111,8 @@ def display_fetched_image(container_placeholder, datadir, previous_files):
             time.sleep(0.1)
             if os.path.exists(file):
                 camera_id = st.session_state.target_dashcam
-                outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id, get_location=True)
+                outputs = None
+                #outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id, get_location=True)
                 if outputs is not None:
                     #with container_placeholder:
                     #    st.image(outputs["vehicle_detection_img"], width=500, caption=str(len(files)))
@@ -206,3 +207,4 @@ def setup_dashcam_view():
 
 if __name__ == "__main__":
     setup_dashcam_view()
+    setup_sidebar_info()
