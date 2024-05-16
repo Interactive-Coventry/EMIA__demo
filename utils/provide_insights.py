@@ -1,7 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import libs.foxutils.utils.core_utils as core_utils
-logger = core_utils.get_logger("app.provide_insights")
+logger = core_utils.get_logger("emia.provide_insights")
 DISABLE_PROSSECING = bool(eval(core_utils.settings["RUN"]["disable_processing"]))
 
 from os.path import join as pathjoin

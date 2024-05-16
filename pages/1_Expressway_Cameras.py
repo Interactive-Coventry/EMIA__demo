@@ -18,7 +18,7 @@ from utils.common import get_target_image, present_results, append_weather_data_
     setup_sidebar_info
 from utils.provide_insights import HISTORY_STEP, get_target_datetime
 
-logger = core_utils.get_logger("app.static_camera_view")
+logger = core_utils.get_logger("page.static_camera_view")
 
 
 def fetch_current_data(target_camera_id):

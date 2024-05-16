@@ -12,7 +12,7 @@ st.set_page_config(page_title="EMIA Dashboard", page_icon=pathjoin('assets', 'fa
 TARGET_FILE_EXTENSION = ".png"
 DEFAULT_IMAGE_PATH = "D:\\data\\emia\\dashcam\\singapore\\2024-03-10_04-34-58\\"
 CAMERA_ID = "custom"
-logger = core_utils.get_logger("app.custom_image_view")
+logger = core_utils.get_logger("page.custom_image_view")
 
 
 def setup_image_series_view():

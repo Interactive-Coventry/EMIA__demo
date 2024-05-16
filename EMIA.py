@@ -39,6 +39,8 @@ st.markdown(
     - Dashcams: Fetch video stream from dashcam\n\n  
     - Custom Video: Fetch video stream from URL\n\n  
     - CCTV: Fetch video stream from CCTV\n\n  
+    - Custom Image: Fetch image series from folder\n\n  
+
     """
 )
 

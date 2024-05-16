@@ -14,7 +14,7 @@ from streamlit_folium import folium_static
 from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE
 from utils.map_utils import print_expressway_camera_locations
 
-logger = core_utils.get_logger("app.common")
+logger = core_utils.get_logger("emia.common")
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
 HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
 
