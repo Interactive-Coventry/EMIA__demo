@@ -110,13 +110,22 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     if USES_FIREBASE:
         current_date = core_utils.convert_datetime_to_string(current_date)
         params = [["datetime", "<=", current_date]]
+        try:
+            c = st.session_state.firebase_db.collection("weather")
+        except AttributeError as e:
+            logger.error(f"AttributeError: {e}")
+            st.session_state.firebase_db = database_utils.init_firebase()
+
         weather_data = st.session_state.firebase_db.collection("weather") \
             .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
             .order_by("datetime", direction=firestore.Query.ASCENDING) \
             .limit_to_last(batch_size).get()
         df_weather = database_utils.collection_reference_to_dataframe(weather_data, is_list=True)
-        df_weather.drop(columns=["id"], inplace=True)
-        df_weather["datetime"] = [core_utils.convert_string_to_date(x) for x in df_weather["datetime"]]
+        if len(df_weather) > 0:
+            df_weather.drop(columns=["id"], inplace=True)
+            df_weather["datetime"] = [core_utils.convert_string_to_date(x) for x in df_weather["datetime"]]
+        else:
+            df_weather = None # No weather data available
 
         params = [["datetime", "<=", current_date],
                   ["camera_id", "==", str(camera_id)]]
@@ -126,8 +135,11 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
             .order_by("datetime", direction=firestore.Query.ASCENDING) \
             .limit_to_last(batch_size).get()
         df_vehicles = database_utils.collection_reference_to_dataframe(vehicle_counts_data, is_list=True)
-        df_vehicles.drop(columns=["id"], inplace=True)
-        df_vehicles["datetime"] = [core_utils.convert_string_to_date(x) for x in df_vehicles["datetime"]]
+        if len(df_vehicles) > 0:
+            df_vehicles.drop(columns=["id"], inplace=True)
+            df_vehicles["datetime"] = [core_utils.convert_string_to_date(x) for x in df_vehicles["datetime"]]
+        else:
+            df_vehicles = None # No vehicle data available
     else:
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"

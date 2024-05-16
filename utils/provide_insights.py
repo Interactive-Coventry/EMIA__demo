@@ -51,19 +51,24 @@ def get_auth_token():
         'email': st.secrets["streaming"]["server"]["username"],
         'password': st.secrets["streaming"]["server"]["password"]
     }
-    response = requests.get(uri, headers=headers)
+    try:
+        response = requests.get(uri, headers=headers)
 
-    if response.status_code == 200:
-        r = response.json()
-        if "token" in r:
-            st.session_state["dashcam_bearer_token"] = r["token"]
-            logger.info(f"Token for dashcam servers is {r['token']}")
-    else:
-        # Request failed
-        logger.info(f"Dashcam authentication request failed with status code {response.status_code}")
-        logger.info(response.text)  # Print the error message if any
+        if response.status_code == 200:
+            r = response.json()
+            if "token" in r:
+                st.session_state["dashcam_bearer_token"] = r["token"]
+                logger.info(f"Token for dashcam servers is {r['token']}")
+        else:
+            # Request failed
+            logger.info(f"Dashcam authentication request failed with status code {response.status_code}")
+            logger.info(response.text)  # Print the error message if any
+            return None
+
+    except requests.exceptions.SSLError as e:
+        logger.info("Please check the SSL certificate of the server.")
+        logger.error(f"SSL Error: {e}")
         return None
-
 
 #############Load models#####
 if IS_TEST or DISABLE_PROSSECING:

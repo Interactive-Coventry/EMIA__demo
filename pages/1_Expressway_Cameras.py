@@ -91,13 +91,10 @@ def setup_expressway_camera_view():
                 run_process(target_camera_id, savedir, preview_container_placeholder, results_container_placeholder)
                 run_info_text_placeholder.text("")
 
-            try:
-                job()
-                while "is_running" in st.session_state and st.session_state.is_running:
-                    run_pending()
-                    time.sleep(1)
-            except AttributeError as e:
-                logger.info(f"AttributeError: {e}")
+            job()
+            while "is_running" in st.session_state and st.session_state.is_running:
+                run_pending()
+                time.sleep(1)
 
 
 if __name__ == "__main__":
