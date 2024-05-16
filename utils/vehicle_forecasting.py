@@ -3,14 +3,12 @@ import tensorflow as tf
 import numpy as np
 import joblib
 from os.path import join as pathjoin
-
 import libs.foxutils.utils.data_generators as dgen
 import libs.foxutils.utils.train_functionalities as trainfunc
 import libs.foxutils.utils.core_utils as core_utils
 import libs.foxutils.utils.keras_models as km
 
-import logging
-logger = logging.getLogger("utils.vehicle_forecasting")
+logger = core_utils.get_logger("utils.vehicle_forecasting")
 MODELS_DIR = core_utils.models_dir
 
 

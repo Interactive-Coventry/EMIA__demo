@@ -13,12 +13,10 @@ import torch.optim as optim
 from efficientnet_pytorch import EfficientNet
 from torch.optim import lr_scheduler
 from torchvision.models import resnet18, resnet50
-
 from libs.foxutils.utils import train_with_lightning, core_utils
 from libs.foxutils.utils.lightning_models.prediction_model import PredictionModel
 
-import logging
-logger = logging.getLogger("utils.weather_detection_utils")
+logger = core_utils.get_logger("utils.weather_detection_utils")
 
 device = core_utils.device
 default_models_dir = pathjoin(core_utils.models_dir, "EMIA", "weather_from_image")
