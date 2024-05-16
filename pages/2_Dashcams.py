@@ -6,8 +6,6 @@ from datetime import datetime
 from os.path import join as pathjoin
 import streamlit as st
 
-from utils.configuration import DASHCAM_NAMES
-
 st.set_page_config(page_title="Dashcams", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
                    initial_sidebar_state="expanded")
 import websockets
@@ -16,12 +14,13 @@ from libs.foxutils.utils.core_utils import get_logger, settings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from utils import configuration
 from utils.common import set_value, present_results, setup_sidebar_info
-from utils.provide_insights import get_insights, process_dashcam_frame
+from utils.provide_insights import get_insights, process_dashcam_frame, IS_TEST, get_auth_token
 from utils.streaming import video_call, WEBSOCKET_SERVER_FULL_URL, send_disconnect_message
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 logger = get_logger("dashcam-view")
 DATA_DIR = settings["DIRECTORY"]["datasets_dir"]
+
 
 def make_new_loop():
     loop = asyncio.new_event_loop()
@@ -71,7 +70,7 @@ def ask_exit():
             logger.info(f"Pending tasks: len={len(pending)}")
             asyncio.set_event_loop(loop)
             try:
-                #asyncio.ensure_future(cancel_all_tasks2(pending))
+                # asyncio.ensure_future(cancel_all_tasks2(pending))
                 cancel_all_tasks(pending)
             except RuntimeError as e:
                 logger.error(f"Runtime Error: {e}")
@@ -111,10 +110,12 @@ def display_fetched_image(container_placeholder, datadir, previous_files):
             time.sleep(0.1)
             if os.path.exists(file):
                 camera_id = st.session_state.target_dashcam
-                outputs = None
-                #outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id, get_location=True)
+                if IS_TEST:
+                    outputs = None
+                else:
+                    outputs = get_insights(mode="files", full_filename=file, camera_id=camera_id, get_location=True)
                 if outputs is not None:
-                    #with container_placeholder:
+                    # with container_placeholder:
                     #    st.image(outputs["vehicle_detection_img"], width=500, caption=str(len(files)))
                     present_results(container_placeholder, outputs)
 
@@ -142,7 +143,7 @@ def delete_empty_folders(target_dir):
                 os.rmdir(current_dir)
                 deleted.add(current_dir)
         except FileNotFoundError as e:
-            #logger.debug(f"FileNotFoundError: {e}")
+            # logger.debug(f"FileNotFoundError: {e}")
             pass
 
     logger.debug(f"Deleted folders: {deleted}")
@@ -158,6 +159,7 @@ def clear_jobs():
 def setup_dashcam_view():
     st.markdown("### Input from Dashcam")
     st.markdown(configuration.DEMO_INSTRUCTIONS)
+
 
     col1, col2 = st.columns([0.5, 0.5], gap="small")
     with col1:
@@ -204,7 +206,15 @@ def setup_dashcam_view():
                         logger.debug(f"FileNotFoundError: {e}")
 
 
-
 if __name__ == "__main__":
-    setup_dashcam_view()
+    if "dashcam_bearer_token" not in st.session_state:
+        val = get_auth_token()
+        if val is None:
+            st.markdown("### Input from Dashcam")
+            st.error("SSL Error: Please check the SSL certificate of the server.")
+        else:
+            logger.debug(f"Bearer token: {val}")
+    else:
+        logger.debug(f"Bearer token: {st.session_state.dashcam_bearer_token}")
+        setup_dashcam_view()
     setup_sidebar_info()
