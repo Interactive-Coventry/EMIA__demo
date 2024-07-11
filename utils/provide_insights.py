@@ -1,6 +1,13 @@
 import warnings
+
+import numpy as np
+from emia_utils import download_utils
+
+from utils.map_utils import get_target_camera_info
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import libs.foxutils.utils.core_utils as core_utils
+
 logger = core_utils.get_logger("emia.provide_insights")
 DISABLE_PROSSECING = bool(eval(core_utils.settings["RUN"]["disable_processing"]))
 
@@ -14,9 +21,9 @@ import pandas as pd
 from PIL import Image
 import gc
 import requests
-from emia_utils.process_utils import make_vehicle_counts_df
+from emia_utils.process_utils import make_vehicle_counts_df, make_weather_df
 from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database, \
-    append_camera_location_data_to_database
+    append_camera_location_data_to_database, append_weather_data_to_database, get_target_image, present_results
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image
@@ -24,8 +31,7 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.configuration import DEFAULT_FILEPATH
-
+from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -43,6 +49,7 @@ logger.debug(f"Has image history: {HAS_IMAGE_HISTORY}")
 WEBSOCKET_SERVER_URL = core_utils.settings["SERVER"]["url"]
 DATA_SERVER_PORT = int(core_utils.settings["SERVER"]["data_port"])
 DATA_SERVER_FULL_URL = f"https://{WEBSOCKET_SERVER_URL}:{DATA_SERVER_PORT}"
+
 
 def get_auth_token():
     uri = DATA_SERVER_FULL_URL + "/auth"
@@ -70,8 +77,10 @@ def get_auth_token():
         logger.error(f"SSL Error: {e}")
         return None
 
+
 #############Load models#####
 if IS_TEST or DISABLE_PROSSECING:
+    logger.info("\n\n------------------Test Mode------------------")
     vf_model, vf_scaler = None, None
     weather_class_model, weather_class_model_name = None, None
     ad_model, ad_tfms, ad_config = None, None, None
@@ -174,7 +183,8 @@ def process_frame(img_dict, device, camera_id=None):
         logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
 
         logger.debug("------------------Run vehicle flow prediction------------------")
-        vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id, HISTORY_LENGTH)
+        vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id,
+                                                                               HISTORY_LENGTH)
         if len(vf_feature_df) < HISTORY_LENGTH:
             logger.debug(f"Not enough history values for calculation")
             results_dict["vehicle_forecasting"] = vf.set_results(pd.DataFrame({"total_vehicles": [0]}), [0])
@@ -182,6 +192,7 @@ def process_frame(img_dict, device, camera_id=None):
             vf_predictions = vf.forecast_vehicles(vf_model, vf_scaler, vf_feature_df,
                                                   HISTORY_LENGTH)
             results_dict["vehicle_forecasting"] = vf.set_results(vf_feature_df, vf_predictions)
+
             logger.debug(f"Predicted num of vehicles in the next time step: {vf_predictions[0]:.2f}")
 
         results_dict["weather_info"] = weather_info
@@ -189,15 +200,12 @@ def process_frame(img_dict, device, camera_id=None):
     return results_dict
 
 
-
-
-
 def get_dashcam_location(dashcam_id, current_datetime):
     uri = DATA_SERVER_FULL_URL + "/cars"
     if "dashcam_bearer_token" not in st.session_state:
         get_auth_token()
     bearer_token = st.session_state["dashcam_bearer_token"]
-    #bearer_token = st.secrets["database"]["bearer_token"]
+    # bearer_token = st.secrets["database"]["bearer_token"]
     headers = {
         'Authorization': f'Bearer {bearer_token}',
         'Content-Type': 'application/json'
@@ -228,12 +236,15 @@ def get_processing_results(img, camera_id=None, get_location=False):
         camera_id = 'NA'
 
     results = process_frame(img, device=DEVICE, camera_id=camera_id)
+    if isinstance(img, dict):
+        target_datetime = img["datetime"]
+    else:
+        target_datetime = core_utils.get_current_datetime(tz=target_tz)
 
-    if get_location:
-        if isinstance(img, dict):
-            target_datetime = img["datetime"]
-        else:
-            target_datetime = core_utils.get_current_datetime(tz=target_tz)
+    if isinstance(get_location, pd.DataFrame):
+        location = get_location
+
+    elif isinstance(get_location, float):
         target_datetime = target_datetime.replace(tzinfo=None)
         location = get_dashcam_location(camera_id, current_datetime=target_datetime)
         if location is not None:
@@ -255,17 +266,40 @@ def get_processing_results(img, camera_id=None, get_location=False):
         ad_label_str = get_label_and_prob_string(results["anomaly_detection"]["label"],
                                                  results["anomaly_detection"]["prob"])
         weather_info = results["weather_info"]
-        weather_info = weather_info[["weather", "description", "temp", "feels_like", "pressure", "humidity", "wind_speed",
-                                     "clouds_all"]]
-        weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temp",
-                             "feels_like": "FeelsLike", "pressure": "Pressure", "humidity": "Humidity",
-                             "wind_speed": "WindSpeed", "clouds_all": "CloudCoverage"}, inplace=True)
+        weather_info = weather_info[
+            ["weather", "description", "temp", "feels_like", "pressure", "humidity", "wind_speed",
+             "clouds_all"]]
+        weather_info.rename({"weather": "Weather", "description": "Description", "temp": "Temperature",
+                             "feels_like": "Feels Like", "pressure": "Pressure", "humidity": "Humidity",
+                             "wind_speed": "Wind Speed", "clouds_all": "Cloudiness"}, inplace=True)
         weather_info = weather_info.to_frame()
+
+        weather_info = weather_info.transpose()
+        weather_info.drop(columns=["Feels Like", "Weather"], inplace=True)
+        weather_info["Temperature"] = np.trunc(weather_info["Temperature"] - 273.15).astype(str) + "°C"
+        weather_info["Pressure"] = weather_info["Pressure"].astype(str) + " hPa"
+        weather_info["Humidity"] = weather_info["Humidity"].astype(str) + "%"
+        weather_info["Wind Speed"] = weather_info["Wind Speed"].astype(str) + " m/s"
+        weather_info["Cloudiness"] = weather_info["Cloudiness"].astype(str) + "%"
+
+        weather_info.index = ["Station 1" for x in weather_info.index]
+        weather_info.index.name = "Location"
+
+        vehicles_df = results["object_detection"]["dataframe"].copy()
+        vehicles_df.drop(columns=["datetime", "camera_id"], inplace=True)
+        vehicles_df.rename(columns={"total_vehicles": "Vehicles", "total_pedestrians": "Pedestrians",
+                                    "car": "Car", "bus": "Bus", "truck": "Truck", "motorcycle": "Motorcycle",
+                                    }, inplace=True)
+        vehicles_df.index = vehicles_df["Vehicles"]
+        vehicles_df.drop(columns=["Vehicles"], inplace=True)
+        if "person" in vehicles_df.columns:
+            vehicles_df.drop(columns=["person"], inplace=True)
+        vehicles_df.index.name = "Vehicles"
 
         outputs = {
             "target_datetime": results["input"]["datetime"],
             "vehicle_detection_img": results["object_detection"]["image"],
-            "vehicle_detection_df": results["object_detection"]["dataframe"],
+            "vehicle_detection_df": vehicles_df,
             "weather_detection_label": {wd_label_str: results["weather_detection"]["prob"]},
             "anomaly_detection_label": {ad_label_str: results["anomaly_detection"]["prob"]},
             "anomaly_detection_img": results["anomaly_detection"]["heat_map"],
@@ -338,12 +372,95 @@ def get_insights(mode="files", **kwargs):
 
 
 def process_dashcam_frame(img, dashcam_id, datadir, count):
-    #logger.debug(f"Fetching img from dashcam {dashcam_id} at {datadir} at count {count}")
+    # logger.debug(f"Fetching img from dashcam {dashcam_id} at {datadir} at count {count}")
     current_datetime = core_utils.get_current_datetime(tz=target_tz)
     current_datetime = core_utils.convert_datetime_to_fully_connected_string(current_datetime)
     save_path = pathjoin(datadir, dashcam_id + "_" + current_datetime + ".png")
     img.save(save_path)
     logger.info(f"Saved video frame {count} at {save_path}")
+
+
+def get_insights_and_present_results(target_camera_id, savedir, preview_container_placeholder, results_container_placeholder):
+    file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
+    target_file = pathjoin(savedir, file_list[0])
+    preview_img, map_fig = get_target_image(target_camera_id, target_file)
+
+    if IS_TEST:
+        with preview_container_placeholder.container():
+            st.markdown("### Preview")
+            capture_time = get_target_datetime(file_list[0])
+            st.markdown(f"Last capture time: {capture_time}")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("##### Target image preview")
+                st.image(preview_img, use_column_width=True)
+            with col2:
+                st.markdown("##### Expressway CCTV locations")
+                st.pyplot(map_fig)
+
+    location = get_target_camera_info(target_camera_id)
+    outputs = get_insights(mode="files", full_filename=target_file,
+                                            camera_id=target_camera_id,
+                                            get_location=location)
+    present_results(results_container_placeholder, outputs)
+
+
+def fetch_current_data(target_camera_id):
+    download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=target_camera_id)
+    weather_metrics_dict = download_utils.download_weather_info_from_openweather(download_utils.TARGET_CITY)
+    weather_df = pd.DataFrame(make_weather_df(weather_metrics_dict), index=[0])
+    weather_df.set_index(["datetime"], inplace=True, drop=True)
+    append_weather_data_to_database(weather_df)
+
+
+def fetch_current_camera_data(target_camera_id):
+    download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=target_camera_id)
+
+
+def fetch_current_weather_data():
+    weather_metrics_dict = download_utils.download_weather_info_from_openweather(download_utils.TARGET_CITY)
+    weather_df = pd.DataFrame(make_weather_df(weather_metrics_dict), index=[0])
+    weather_df.set_index(["datetime"], inplace=True, drop=True)
+    append_weather_data_to_database(weather_df)
+
+
+def update_current_camera_state(target_camera_id, run_info_text_placeholder, preview_container_placeholder,
+                                results_container_placeholder):
+    run_info_text_placeholder.text("Processing...")
+
+    fetch_current_weather_data()
+    logger.debug(f"Updated weather data.")
+
+    fetch_current_camera_data(target_camera_id)
+    logger.debug(f"Updated data for camera {target_camera_id}")
+
+    savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
+                       TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
+    get_insights_and_present_results(target_camera_id, savedir, preview_container_placeholder,
+                                     results_container_placeholder)
+    run_info_text_placeholder.text("")
+
+
+def update_global_state(target_cameras):
+    fetch_current_weather_data()
+    logger.info(f"Updated weather data.")
+
+    for target_camera_id in target_cameras:
+        logger.debug(f"Running fetch_current_camera_data for camera {target_camera_id}.")
+        fetch_current_camera_data(target_camera_id)
+        logger.info(f"Updated data for camera {target_camera_id}")
+
+        savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
+                           TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
+        file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
+        target_file = pathjoin(savedir, file_list[0])
+
+        # preview_img, map_fig = get_target_image(target_camera_id, target_file)
+
+        capture_time = get_target_datetime(file_list[0])
+        logger.info(f"Last capture time: {capture_time} for camera {target_camera_id}")
+        outputs = get_insights(mode="files", full_filename=target_file, camera_id=None, get_location=False)
+        logger.info(f"Results for camera {target_camera_id}:\n{outputs}")
 
 
 

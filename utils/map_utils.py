@@ -11,7 +11,20 @@ CAMERA_INFO_PATH = pathjoin("assets", "maps", "camera_ids.csv")
 
 def get_expressway_camera_info():
     df_lan = pd.read_csv(CAMERA_INFO_PATH)
+    df_lan["CameraID"] = [str(x) for x in df_lan["CameraID"]]
     return df_lan
+
+
+def get_target_camera_info(camera_id):
+    df_lan = get_expressway_camera_info()
+    df_record = df_lan[df_lan["CameraID"] == str(camera_id)]
+    if len(df_record) == 0:
+        return False
+
+    df_coord = pd.DataFrame({"camera_id": [camera_id], "lat": [df_record.iloc[0]["Latitude"]],
+                             "lng": [df_record.iloc[0]["Longitude"]],
+                             "datetime": [None]})
+    return df_coord
 
 
 def print_expressway_camera_locations(camera_list, colors=None):
