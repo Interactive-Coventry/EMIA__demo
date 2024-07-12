@@ -1,7 +1,7 @@
 import warnings
 
 import numpy as np
-from emia_utils import download_utils
+from emia_utils import download_utils, database_utils
 
 from utils.map_utils import get_target_camera_info
 
@@ -31,7 +31,7 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH
+from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH, EXPRESSWAY_CAMERA_IDS
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -455,13 +455,24 @@ def update_global_state(target_cameras):
         file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
         target_file = pathjoin(savedir, file_list[0])
 
-        # preview_img, map_fig = get_target_image(target_camera_id, target_file)
-
-        capture_time = get_target_datetime(file_list[0])
-        logger.info(f"Last capture time: {capture_time} for camera {target_camera_id}")
+        #capture_time = get_target_datetime(file_list[0])
+        #logger.debug(f"Last capture time: {capture_time} for camera {target_camera_id}")
         outputs = get_insights(mode="files", full_filename=target_file, camera_id=None, get_location=False)
-        logger.info(f"Results for camera {target_camera_id}:\n{outputs}")
+        logger.debug(f"Results for camera {target_camera_id}:\n{outputs}")
 
+
+def update_traffic_stats(target_cameras=EXPRESSWAY_CAMERA_IDS):
+    update_global_state(target_cameras)
+
+    current_date = core_utils.get_current_datetime(tz=target_tz)
+    batch_size = len(target_cameras)
+    camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
+    fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
+    params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
+              ["camera_id", "in", " (" + camera_str + ")"]]
+    params[-1].append(fetch_top)
+    df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
+    return df_vehicles
 
 
 ############################## Test ######################################

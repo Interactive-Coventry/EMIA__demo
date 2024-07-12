@@ -9,6 +9,32 @@ from geopandas import GeoDataFrame
 
 CAMERA_INFO_PATH = pathjoin("assets", "maps", "camera_ids.csv")
 
+def split_in_categories(value, range_size, categories=3):
+    if categories == 3:
+        if value <  range_size:
+            category = 'blue'
+        elif  range_size <= value < 2 * range_size:
+            category = 'yellow'
+        else:
+            category = 'red'
+        return category
+    else:
+        raise ValueError("Only 3 categories are supported.")
+
+def categorize_and_color(values, categories=3):
+    max_value = max(values)
+    range_size = max_value / categories
+    colored_values = [split_in_categories(value, range_size, categories) for value in values]
+    return colored_values
+
+
+def assign_heatmap_colors(values, colormap_name='viridis'):
+    norm = plt.Normalize(0, max(values))
+    cmap = plt.get_cmap(colormap_name)
+    colored_values = [cmap(norm(value)) for value in values]
+    return colored_values
+
+
 def get_expressway_camera_info():
     df_lan = pd.read_csv(CAMERA_INFO_PATH)
     df_lan["CameraID"] = [str(x) for x in df_lan["CameraID"]]
@@ -39,8 +65,10 @@ def print_expressway_camera_locations(camera_list, colors=None):
     # this is a simple map that goes with geopandas
     singapore = gpd.read_file(pathjoin("assets", "maps", "SGP_adm0.shp"))
 
+    has_legend = False
     if colors is None:
         colors = ["red" for _ in range(len(gdf))]
+        has_legend = True
 
     # Plot each point with a different color
     ax1 = singapore.plot(figsize=(6, 6))
@@ -62,13 +90,14 @@ def print_expressway_camera_locations(camera_list, colors=None):
     for x, y, label in zip(sensor["Longitude"], sensor["Latitude"], sensor["CameraID"]):
         ax1.annotate(label, xy=(x, y), xytext=(-25, 5), textcoords="offset points", color="yellow")
 
-    # Add a dummy plot for the legend
-    dummy_point_expr = plt.Line2D([0], [0], marker="o", color="red", markersize=5, linewidth=0,
-                             label="Expressway\nCamera")
-    dummy_point_mobile = plt.Line2D([0], [0], marker="o", color="blue", markersize=5, linewidth=0,
-                             label="Mobile\nDashcam")
+    if has_legend:
+        # Add a dummy plot for the legend
+        dummy_point_expr = plt.Line2D([0], [0], marker="o", color="red", markersize=5, linewidth=0,
+                                 label="Expressway\nCamera")
+        dummy_point_mobile = plt.Line2D([0], [0], marker="o", color="blue", markersize=5, linewidth=0,
+                                 label="Mobile\nDashcam")
+        ax1.legend(handles=[dummy_point_expr, dummy_point_mobile], loc="lower right", fontsize=8)
 
-    ax1.legend(handles=[dummy_point_expr, dummy_point_mobile], loc="lower right", fontsize=8)
     ax1.axis("off")
 
     return ax1.get_figure()
