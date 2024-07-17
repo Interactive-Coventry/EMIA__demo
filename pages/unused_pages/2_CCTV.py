@@ -11,7 +11,7 @@ from schedule import clear as clear_all_jobs
 import time
 from emia_utils import download_utils
 from libs.foxutils.utils import core_utils
-from utils.configuration import TRAFFIC_IMAGES_PATH
+from utils.configuration import TRAFFIC_IMAGES_PATH, camera_id_key_name, DEFAULT_CAMERA_ID
 from utils.map_utils import get_expressway_camera_info
 from utils.common import set_value, \
     setup_sidebar_info
@@ -28,8 +28,8 @@ def clear_jobs():
 
 def setup_expressway_camera_view():
     st.markdown("### Input from Expressway CCTV Camera")
-    available_cameras = [str(x) for x in get_expressway_camera_info()["CameraID"].values]
-    default_index = available_cameras.index("1703")
+    available_cameras = [str(x) for x in get_expressway_camera_info()[camera_id_key_name].values]
+    default_index = available_cameras.index(DEFAULT_CAMERA_ID)
     dashcam_source_btn = st.selectbox(label="Select input source", options=available_cameras,
                                       index=default_index, key="dashcam_source")
     exec_btn_placeholder = st.empty()

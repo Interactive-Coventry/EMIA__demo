@@ -2,9 +2,6 @@ import warnings
 
 import numpy as np
 from emia_utils import download_utils, database_utils
-
-from utils.map_utils import get_target_camera_info
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import libs.foxutils.utils.core_utils as core_utils
 
@@ -23,7 +20,8 @@ import gc
 import requests
 from emia_utils.process_utils import make_vehicle_counts_df, make_weather_df
 from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database, \
-    append_camera_location_data_to_database, append_weather_data_to_database, get_target_image, present_results
+    append_camera_location_data_to_database, append_weather_data_to_database, get_target_image, present_results, \
+    get_target_camera_info
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image
@@ -31,7 +29,8 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
-from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH, EXPRESSWAY_CAMERA_IDS
+from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH, camera_id_key_name, latitude_key_name, \
+    longitude_key_name
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -163,7 +162,7 @@ def process_frame(img_dict, device, camera_id=None):
         od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
         od_row = pd.DataFrame(od_dfs.iloc[-1]).T
         od_row["datetime"] = [target_datetime]
-        od_row["camera_id"] = [camera_id]
+        od_row[camera_id_key_name] = [camera_id]
         vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
         vc_df.set_index("datetime", inplace=True, drop=True)
         append_vehicle_counts_data_to_database(vc_df)
@@ -220,7 +219,9 @@ def get_dashcam_location(dashcam_id, current_datetime):
             return None
         location = cam_info[0]["location"]
         logger.debug(f"Location of dashcam {dashcam_id}: {location}")
-        df_coord = pd.DataFrame({"camera_id": [dashcam_id], "lat": [location["lat"]], "lng": [location["lng"]],
+        df_coord = pd.DataFrame({camera_id_key_name: [dashcam_id],
+                                 latitude_key_name: [location["lat"]],
+                                 longitude_key_name: [location["lng"]],
                                  "datetime": [current_datetime]})
         df_coord.set_index("datetime", inplace=True, drop=True)
         return df_coord
@@ -250,7 +251,7 @@ def get_processing_results(img, camera_id=None, get_location=False):
         if location is not None:
             append_camera_location_data_to_database(location)
         else:
-            location = pd.DataFrame({"camera_id": [camera_id], "lat": [37], "lng": [22],
+            location = pd.DataFrame({camera_id_key_name: [camera_id], latitude_key_name: [37], longitude_key_name: [22],
                                      "datetime": [target_datetime]})
     else:
         location = None
@@ -286,15 +287,13 @@ def get_processing_results(img, camera_id=None, get_location=False):
         weather_info.index.name = "Location"
 
         vehicles_df = results["object_detection"]["dataframe"].copy()
-        vehicles_df.drop(columns=["datetime", "camera_id"], inplace=True)
+        vehicles_df.drop(columns=["datetime", camera_id_key_name], inplace=True)
+        if "person" in vehicles_df.columns:
+            vehicles_df.drop(columns=["person"], inplace=True)
         vehicles_df.rename(columns={"total_vehicles": "Vehicles", "total_pedestrians": "Pedestrians",
                                     "car": "Car", "bus": "Bus", "truck": "Truck", "motorcycle": "Motorcycle",
                                     }, inplace=True)
-        vehicles_df.index = vehicles_df["Vehicles"]
-        vehicles_df.drop(columns=["Vehicles"], inplace=True)
-        if "person" in vehicles_df.columns:
-            vehicles_df.drop(columns=["person"], inplace=True)
-        vehicles_df.index.name = "Vehicles"
+        vehicles_df.set_index("Vehicles", inplace=True, drop=True)
 
         outputs = {
             "target_datetime": results["input"]["datetime"],
@@ -314,7 +313,7 @@ def get_processing_results(img, camera_id=None, get_location=False):
 def get_insights(mode="files", **kwargs):
     if mode == "files":
         full_filename = kwargs["full_filename"]
-        camera_id = kwargs["camera_id"]
+        camera_id = kwargs[camera_id_key_name]
         get_location = kwargs["get_location"]
         image_file, folder, _ = split_filename_folder(full_filename)
         current_datetime = get_target_datetime(image_file)
@@ -326,7 +325,7 @@ def get_insights(mode="files", **kwargs):
     elif mode == "image":
         image = kwargs["image"]
         current_datetime = kwargs["current_datetime"]
-        camera_id = kwargs["camera_id"]
+        camera_id = kwargs[camera_id_key_name]
         get_location = kwargs["get_location"]
         img = {"image": image, "datetime": current_datetime}
         return get_processing_results(img, camera_id=camera_id, get_location=get_location)
@@ -380,10 +379,11 @@ def process_dashcam_frame(img, dashcam_id, datadir, count):
     logger.info(f"Saved video frame {count} at {save_path}")
 
 
-def get_insights_and_present_results(target_camera_id, savedir, preview_container_placeholder, results_container_placeholder):
+def get_insights_and_present_results(target_camera_id, savedir, preview_container_placeholder,
+                                     results_container_placeholder, target_camera_info):
     file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
     target_file = pathjoin(savedir, file_list[0])
-    preview_img, map_fig = get_target_image(target_camera_id, target_file)
+    preview_img, map_fig = get_target_image(target_camera_info, target_camera_id, target_file)
 
     if IS_TEST:
         with preview_container_placeholder.container():
@@ -406,14 +406,14 @@ def get_insights_and_present_results(target_camera_id, savedir, preview_containe
 
 
 def fetch_current_data(target_camera_id):
-    download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=target_camera_id)
+    download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=[target_camera_id])
     weather_metrics_dict = download_utils.download_weather_info_from_openweather(download_utils.TARGET_CITY)
     weather_df = pd.DataFrame(make_weather_df(weather_metrics_dict), index=[0])
     weather_df.set_index(["datetime"], inplace=True, drop=True)
     append_weather_data_to_database(weather_df)
 
 
-def fetch_current_camera_data(target_camera_id):
+def fetch_current_camera_data(target_camera_id=None):
     download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=target_camera_id)
 
 
@@ -425,7 +425,7 @@ def fetch_current_weather_data():
 
 
 def update_current_camera_state(target_camera_id, run_info_text_placeholder, preview_container_placeholder,
-                                results_container_placeholder):
+                                results_container_placeholder, target_camera_info):
     run_info_text_placeholder.text("Processing...")
 
     fetch_current_weather_data()
@@ -437,7 +437,7 @@ def update_current_camera_state(target_camera_id, run_info_text_placeholder, pre
     savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                        TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
     get_insights_and_present_results(target_camera_id, savedir, preview_container_placeholder,
-                                     results_container_placeholder)
+                                     results_container_placeholder, target_camera_info)
     run_info_text_placeholder.text("")
 
 
@@ -445,11 +445,11 @@ def update_global_state(target_cameras):
     fetch_current_weather_data()
     logger.info(f"Updated weather data.")
 
+    fetch_current_camera_data(target_cameras)
+    logger.info(f"Updated data for all cameras.")
+
     for target_camera_id in target_cameras:
         logger.debug(f"Running fetch_current_camera_data for camera {target_camera_id}.")
-        fetch_current_camera_data(target_camera_id)
-        logger.info(f"Updated data for camera {target_camera_id}")
-
         savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                            TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
         file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
@@ -458,10 +458,10 @@ def update_global_state(target_cameras):
         #capture_time = get_target_datetime(file_list[0])
         #logger.debug(f"Last capture time: {capture_time} for camera {target_camera_id}")
         outputs = get_insights(mode="files", full_filename=target_file, camera_id=None, get_location=False)
-        logger.debug(f"Results for camera {target_camera_id}:\n{outputs}")
+        #logger.debug(f"Results for camera {target_camera_id}:\n{outputs}")
 
 
-def update_traffic_stats(target_cameras=EXPRESSWAY_CAMERA_IDS):
+def update_traffic_stats(target_cameras):
     update_global_state(target_cameras)
 
     current_date = core_utils.get_current_datetime(tz=target_tz)
@@ -469,7 +469,7 @@ def update_traffic_stats(target_cameras=EXPRESSWAY_CAMERA_IDS):
     camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
     fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
     params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
-              ["camera_id", "in", " (" + camera_str + ")"]]
+              [camera_id_key_name, "in", " (" + camera_str + ")"]]
     params[-1].append(fetch_top)
     df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
     return df_vehicles

@@ -1,6 +1,7 @@
 from datetime import timedelta
 from os.path import join as pathjoin
 
+import pandas as pd
 import streamlit as st
 from PIL import Image
 import libs.foxutils.utils.core_utils as core_utils
@@ -11,8 +12,8 @@ from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 from streamlit_folium import folium_static
-
-from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE
+from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, FIXED_CAMERA_SPEC_TABLE_NAME, CAMERA_INFO_PATH, \
+    camera_id_key_name
 from utils.map_utils import print_expressway_camera_locations
 
 logger = core_utils.get_logger("emia.common")
@@ -65,6 +66,25 @@ if USES_FIREBASE:
     logger.info(f"Firebase connect: Connecting to {st.session_state.firebase_db}")
 else:
     st.session_state.conn = init_connection()
+
+
+def get_expressway_camera_info_from_file():
+    df_lan = pd.read_csv(CAMERA_INFO_PATH, index_col=0)
+    df_lan[camera_id_key_name] = [str(x) for x in df_lan[camera_id_key_name]]
+    return df_lan
+
+
+def get_expressway_camera_info_from_db():
+    df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params=[], conn=st.session_state.conn)
+    df_lan.drop(columns=["update_frequency"], inplace=True)
+    df_lan["datetime"] = None
+    return df_lan
+
+
+def get_target_camera_info(camera_id):
+    df_lan = get_expressway_camera_info_from_db()
+    df_coord = df_lan[df_lan[camera_id_key_name] == str(camera_id)]
+    return df_coord
 
 
 def append_weather_data_to_database(weather_df):
@@ -129,7 +149,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
             df_weather = None # No weather data available
 
         params = [["datetime", "<=", current_date],
-                  ["camera_id", "==", str(camera_id)]]
+                  [camera_id_key_name, "==", str(camera_id)]]
         vehicle_counts_data = st.session_state.firebase_db.collection("vehicle_counts") \
             .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
             .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2])) \
@@ -148,7 +168,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
         df_weather = database_utils.read_table_with_select("weather", params, conn=st.session_state.conn)
 
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
-                  ["camera_id", "=", database_utils.enclose_in_quotes(str(camera_id))]]
+                  [camera_id_key_name, "=", database_utils.enclose_in_quotes(str(camera_id))]]
         params[-1].append(fetch_top)
         df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
 
@@ -160,13 +180,13 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     return df_features, latest_weather_info
 
 
-def get_target_image(camera_selection, image_file=None):
+def get_target_image(camera_info, camera_selection, image_file=None):
     if image_file is None:
         image_file = pathjoin(DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE)
 
     logger.debug(f"Reading image from {image_file}")
     img = Image.open(image_file)
-    fig = print_expressway_camera_locations([camera_selection])
+    fig = print_expressway_camera_locations(camera_info, [camera_selection], )
     logger.debug(f"Finished preparing preview.")
     return img, fig
 
@@ -180,7 +200,7 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                 location = outputs["location"]
                 col1, col2 = st.columns(2)
                 with col1:
-                    m = plot_markers_on_map(None, location, label_column="camera_id")
+                    m = plot_markers_on_map(None, location, label_column=camera_id_key_name)
                     folium_static(m, height=200, width=200)
                     logger.debug(f"Finished plotting markers on map. Location: {outputs['location']}")
 
