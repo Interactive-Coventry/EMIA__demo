@@ -64,7 +64,7 @@ def get_auth_token():
             r = response.json()
             if "token" in r:
                 st.session_state["dashcam_bearer_token"] = r["token"]
-                logger.info(f"Token for dashcam servers is {r['token']}")
+                logger.debug(f"Token for dashcam servers is {r['token']}")
         else:
             # Request failed
             logger.info(f"Dashcam authentication request failed with status code {response.status_code}")
@@ -139,6 +139,42 @@ def get_relevant_data(full_filename, delete_previous_results=False, history_leng
     return image_file, folder, filepath, target_files
 
 
+def process_batch(img_list, device):
+    db_results = pd.DataFrame()
+    for img_dict in img_list:
+        if isinstance(img_dict, dict):
+            target_datetime = img_dict["datetime"]
+            cv2_img = img_dict["image"]
+            camera_id = img_dict[camera_id_key_name]
+        else:
+            raise NotImplementedError
+
+        target_datetime = target_datetime.replace(tzinfo=None)
+        logger.info(f"Target datetime: {target_datetime}")
+        pil_img = Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB))
+
+        if IS_TEST or DISABLE_PROSSECING:
+            logger.info("Test mode is on. Skipping model inference.")
+        else:
+            logger.debug("------------------Run object detection------------------")
+            od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt)
+            od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
+            od_row = pd.DataFrame(od_dfs.iloc[-1]).T
+            od_row["datetime"] = [target_datetime]
+            od_row[camera_id_key_name] = [camera_id]
+            vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
+            vc_df.set_index("datetime", inplace=True, drop=True)
+            db_results = pd.concat([db_results, vc_df], axis=0)
+
+            logger.debug("------------------Run weather detection------------------")
+            wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
+
+            logger.debug("------------------Run anomaly detection------------------")
+            ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
+
+    append_vehicle_counts_data_to_database(db_results)
+
+
 def process_frame(img_dict, device, camera_id=None):
     if isinstance(img_dict, dict):
         target_datetime = img_dict["datetime"]
@@ -158,7 +194,7 @@ def process_frame(img_dict, device, camera_id=None):
         logger.info("Test mode is on. Skipping model inference.")
     else:
         logger.debug("------------------Run object detection------------------")
-        od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt, device)
+        od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt)
         od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
         od_row = pd.DataFrame(od_dfs.iloc[-1]).T
         od_row["datetime"] = [target_datetime]
@@ -448,17 +484,20 @@ def update_global_state(target_cameras):
     fetch_current_camera_data(target_cameras)
     logger.info(f"Updated data for all cameras.")
 
+    target_images = []
     for target_camera_id in target_cameras:
-        logger.debug(f"Running fetch_current_camera_data for camera {target_camera_id}.")
         savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                            TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
         file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
         target_file = pathjoin(savedir, file_list[0])
 
-        #capture_time = get_target_datetime(file_list[0])
-        #logger.debug(f"Last capture time: {capture_time} for camera {target_camera_id}")
-        outputs = get_insights(mode="files", full_filename=target_file, camera_id=None, get_location=False)
-        #logger.debug(f"Results for camera {target_camera_id}:\n{outputs}")
+        image_file, folder, _ = split_filename_folder(target_file)
+        current_datetime = get_target_datetime(image_file)
+
+        target_images.append({"image": cv2.imread(target_file), "datetime": current_datetime,
+                              camera_id_key_name: target_camera_id})
+
+    process_batch(target_images, DEVICE)
 
 
 def update_traffic_stats(target_cameras):

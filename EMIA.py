@@ -1,10 +1,8 @@
 import time
-
-from utils.configuration import DEFAULT_CAMERA_ID, camera_id_key_name
-
 start_time = time.time()
 import streamlit as st
 from os.path import join as pathjoin
+from utils.configuration import DEFAULT_CAMERA_ID, camera_id_key_name
 
 st.set_page_config(page_title="EMIA Dashboard", page_icon=pathjoin('assets', 'favicon.ico'), layout="centered",
                    initial_sidebar_state="expanded")

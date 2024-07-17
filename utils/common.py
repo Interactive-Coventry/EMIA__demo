@@ -52,8 +52,7 @@ def init_connection():
     import socket
     hostname = socket.gethostname()
     IPAddr = socket.gethostbyname(hostname)
-    logger.info(f"Your Computer Name is: {hostname}")
-    logger.info(f"Your Computer IP Address is:{IPAddr}")
+    logger.info(f"Your Computer Name is: {hostname} and IP Address is:{IPAddr}")
 
     conn_ = connect()
     logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")

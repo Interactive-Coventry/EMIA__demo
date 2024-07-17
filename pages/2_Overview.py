@@ -15,7 +15,7 @@ from utils.provide_insights import update_traffic_stats
 logger = core_utils.get_logger("page.overview_view")
 camera_info = get_expressway_camera_info_from_db()
 available_cameras = [str(x) for x in camera_info[camera_id_key_name].values]
-available_cameras = available_cameras[0:5]
+#available_cameras = available_cameras[0:5]
 
 
 def setup_overview_view():
@@ -24,7 +24,7 @@ def setup_overview_view():
 
     if st.button("Update traffic stats"):
         message_placeholder.markdown("Updating traffic stats...")
-        print(available_cameras)
+        logger.debug(f"Available cameras: {available_cameras}")
         df_vehicles = update_traffic_stats(available_cameras)
         colors_vehicles = assign_heatmap_colors(df_vehicles["total_vehicles"].values)
         colors_pedestrians = assign_heatmap_colors(df_vehicles["total_pedestrians"].values)

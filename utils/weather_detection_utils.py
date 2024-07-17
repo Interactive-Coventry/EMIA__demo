@@ -205,7 +205,7 @@ def load_weather_detection_model():
     weather_class_model, weather_class_model_name = make(weather_class_model_name, checkpoint_path, weather_dict,
                                                          version, has_augmentation=has_augmentation,
                                                          has_transfer_learning=has_transfer_learning)
-    logger.info(f"New weather classification model loaded from {weather_detection_checkpoint_file}. Model type {type(weather_class_model)}.\n")
+    logger.debug(f"New weather classification model loaded from {weather_detection_checkpoint_file}. Model type {type(weather_class_model)}.\n")
     return weather_class_model, weather_class_model_name
 
 
@@ -236,7 +236,7 @@ def make(base_model_name, weight_path, class_mapping, version, has_augmentation=
     model_name, model_filename = get_model_name(version, base_model_name=base_model_name,
                                                 has_augmentation=has_augmentation,
                                                 has_transfer_learning=has_transfer_learning)
-    logger.info(f"\nRunning for a {model_name} model...")
+    logger.debug(f"Running for a {model_name} model...")
 
     forward_function = train_with_lightning.get_label_probs  # train_with_lightning.get_argmax_label
 
