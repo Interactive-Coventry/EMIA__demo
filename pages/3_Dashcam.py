@@ -207,6 +207,7 @@ def setup_dashcam_view():
 
 
 if __name__ == "__main__":
+    setup_sidebar_info()
     if "dashcam_bearer_token" not in st.session_state:
         val = get_auth_token()
         if val is None:
@@ -217,4 +218,3 @@ if __name__ == "__main__":
     else:
         logger.debug(f"Bearer token: {st.session_state.dashcam_bearer_token}")
         setup_dashcam_view()
-    setup_sidebar_info()

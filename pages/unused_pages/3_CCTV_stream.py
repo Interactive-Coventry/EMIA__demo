@@ -45,6 +45,6 @@ def setup_cctv_view():
 
 
 if __name__ == "__main__":
-    setup_cctv_view()
     setup_sidebar_info()
+    setup_cctv_view()
 

@@ -1,5 +1,7 @@
 from datetime import timedelta
 from os.path import join as pathjoin
+
+import pandas as pd
 import streamlit as st
 from PIL import Image
 import libs.foxutils.utils.core_utils as core_utils
@@ -10,8 +12,8 @@ from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 from streamlit_folium import folium_static
-
-from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE
+from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, FIXED_CAMERA_SPEC_TABLE_NAME, CAMERA_INFO_PATH, \
+    camera_id_key_name
 from utils.map_utils import print_expressway_camera_locations
 
 logger = core_utils.get_logger("emia.common")
@@ -50,8 +52,7 @@ def init_connection():
     import socket
     hostname = socket.gethostname()
     IPAddr = socket.gethostbyname(hostname)
-    logger.info(f"Your Computer Name is: {hostname}")
-    logger.info(f"Your Computer IP Address is:{IPAddr}")
+    logger.info(f"Your Computer Name is: {hostname} and IP Address is:{IPAddr}")
 
     conn_ = connect()
     logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")
@@ -64,6 +65,25 @@ if USES_FIREBASE:
     logger.info(f"Firebase connect: Connecting to {st.session_state.firebase_db}")
 else:
     st.session_state.conn = init_connection()
+
+
+def get_expressway_camera_info_from_file():
+    df_lan = pd.read_csv(CAMERA_INFO_PATH, index_col=0)
+    df_lan[camera_id_key_name] = [str(x) for x in df_lan[camera_id_key_name]]
+    return df_lan
+
+
+def get_expressway_camera_info_from_db():
+    df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params=[], conn=st.session_state.conn)
+    df_lan.drop(columns=["update_frequency"], inplace=True)
+    df_lan["datetime"] = None
+    return df_lan
+
+
+def get_target_camera_info(camera_id):
+    df_lan = get_expressway_camera_info_from_db()
+    df_coord = df_lan[df_lan[camera_id_key_name] == str(camera_id)]
+    return df_coord
 
 
 def append_weather_data_to_database(weather_df):
@@ -128,7 +148,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
             df_weather = None # No weather data available
 
         params = [["datetime", "<=", current_date],
-                  ["camera_id", "==", str(camera_id)]]
+                  [camera_id_key_name, "==", str(camera_id)]]
         vehicle_counts_data = st.session_state.firebase_db.collection("vehicle_counts") \
             .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
             .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2])) \
@@ -147,7 +167,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
         df_weather = database_utils.read_table_with_select("weather", params, conn=st.session_state.conn)
 
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
-                  ["camera_id", "=", database_utils.enclose_in_quotes(str(camera_id))]]
+                  [camera_id_key_name, "=", database_utils.enclose_in_quotes(str(camera_id))]]
         params[-1].append(fetch_top)
         df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
 
@@ -159,13 +179,13 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     return df_features, latest_weather_info
 
 
-def get_target_image(camera_selection, image_file=None):
+def get_target_image(camera_info, camera_selection, image_file=None):
     if image_file is None:
         image_file = pathjoin(DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE)
 
     logger.debug(f"Reading image from {image_file}")
     img = Image.open(image_file)
-    fig = print_expressway_camera_locations([camera_selection])
+    fig = print_expressway_camera_locations(camera_info, [camera_selection], )
     logger.debug(f"Finished preparing preview.")
     return img, fig
 
@@ -173,39 +193,43 @@ def get_target_image(camera_selection, image_file=None):
 def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
     if outputs is not None:
         with container_placeholder.container():
-            st.markdown("### Results")
-            st.markdown(f"##### Current Datetime: {outputs['target_datetime'].strftime('%Y/%m/%d, %H:%M:%S')} "
-                        f"({core_utils.settings['RUN']['timezone']})")
+            st.markdown("##### Analysis")
 
             if outputs["location"] is not None:
                 location = outputs["location"]
                 col1, col2 = st.columns(2)
                 with col1:
-                    m = plot_markers_on_map(None, location, label_column="camera_id")
+                    m = plot_markers_on_map(None, location, label_column=camera_id_key_name)
                     folium_static(m, height=200, width=200)
-                    logger.debug(f"Finished plotting markers on map.")
-                    logger.debug(f"Location: {outputs['location']}")
+                    logger.debug(f"Finished plotting markers on map. Location: {outputs['location']}")
+
                 with col2:
                     lat = location.iloc[0]["lat"]
                     lng = location.iloc[0]["lng"]
-                    st.markdown(f"#### Camera Location:  \n\nlatitude: {lat}  \n\nlongitude: {lng}")
+
+                    from geopy.geocoders import Nominatim
+                    geolocator = Nominatim(user_agent="emia")
+                    location_ = geolocator.reverse( str(lat) + ", " + str(lng))
+
+                    st.markdown(f"**Date**: {outputs['target_datetime'].strftime('%Y/%m/%d %H:%M:%S')}")
+                    st.markdown(f"**Location**: {location_.address}")
 
             col3, col4 = st.columns(2)
             with col3:
-                st.markdown("##### Object Detection:")
+                st.markdown("##### Detection")
                 st.image(outputs["vehicle_detection_img"], use_column_width=True)
 
                 if SHOW_WEATHER_LABEL:
-                    st.markdown("##### Weather Label:")
+                    st.markdown("##### Weather Label")
                     for k, v in outputs["weather_detection_label"].items():
                         st.progress(v, text=k)
 
             with col4:
-                st.markdown("##### Anomaly Heatmap:")
+                st.markdown("##### Anomaly")
                 st.image(outputs["anomaly_detection_img"], use_column_width=True)
 
                 if SHOW_ANOMALY_LABEL:
-                    st.markdown("##### Anomaly Label:")
+                    st.markdown("##### Anomaly Label")
                     show_general_label = True
                     if show_general_label:
                         for k, v in outputs["anomaly_detection_label"].items():
@@ -216,23 +240,24 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                         for k, v in outputs["anomaly_detection_label"].items():
                             st.progress(v, text=k)
 
-            st.markdown("##### Weather Information:")
-            weather_info = outputs["weather_info"].transpose()
+            st.markdown("##### Weather Information")
+            weather_info = outputs["weather_info"]
             st.dataframe(weather_info, use_container_width=True)
 
-            st.markdown("##### Detected Vehicles:")
-            vehicles_df = outputs["vehicle_detection_df"].copy()
-            vehicles_df.drop(columns=["datetime"], inplace=True)
+            st.markdown("##### Traffic Information")
+            vehicles_df = outputs["vehicle_detection_df"]
             st.dataframe(vehicles_df, use_container_width=True)
 
-            st.markdown(f"##### Vehicle Forecasting (in the next {forecast_step} {HISTORY_STEP_UNIT}):")
+            st.markdown(f"##### Vehicle Forecasting")
+            logger.debug(f"Vehicle Forecasting in the next {forecast_step} {HISTORY_STEP_UNIT}):")
+
             if SHOW_VEHICLE_FORECAST_GRAPH:
                 try:
                     vf_df = outputs["vehicle_forecast"]["previous_counts"].copy()
                     vf_predictions = outputs["vehicle_forecast"]["predictions"]
                     vf_df = vf_df[["total_vehicles"]]
-                    vf_df.insert(loc=len(vf_df.columns), column="Predicted Total Vehicles", value=[None] * len(vf_df))
-                    vf_df.rename(columns={"total_vehicles": "Measured Total Vehicles"}, inplace=True)
+                    vf_df.insert(loc=len(vf_df.columns), column="Predicted Vehicle Count", value=[None] * len(vf_df))
+                    vf_df.rename(columns={"total_vehicles": "Measured Vehicle Count"}, inplace=True)
                     pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
                     if HISTORY_STEP_UNIT != "minutes":
                         raise NotImplementedError("Only minutes are supported for now.")
@@ -263,6 +288,7 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
             st.markdown("No results available during testing.")
 
 
+
 def setup_sidebar_info():
     st.sidebar.markdown("""
         <style>
@@ -272,10 +298,10 @@ def setup_sidebar_info():
         </style>
         """, unsafe_allow_html=True)
 
-    st.sidebar.image("assets/InterCov-logo_web.jpg", width=200)
-    st.sidebar.markdown(
-        """[InteractiveCoventry.com/EMIA](https://www.interactivecoventry.com/emia/#main)
-        """
-    )
+    st.sidebar.image("assets/InterCov-logo_web.png", width=200)
+    #st.sidebar.markdown(
+    #    """[InteractiveCoventry.com/EMIA](https://www.interactivecoventry.com/emia/#main)
+    #    """
+    #)
 
-    st.sidebar.image("assets/qr.png", width=150)
+    #st.sidebar.image("assets/qr.png", width=150)
