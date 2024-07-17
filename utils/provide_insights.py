@@ -157,7 +157,7 @@ def process_batch(img_list, device):
             logger.info("Test mode is on. Skipping model inference.")
         else:
             logger.debug("------------------Run object detection------------------")
-            od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt)
+            od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt)
             od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
             od_row = pd.DataFrame(od_dfs.iloc[-1]).T
             od_row["datetime"] = [target_datetime]
@@ -194,7 +194,7 @@ def process_frame(img_dict, device, camera_id=None):
         logger.info("Test mode is on. Skipping model inference.")
     else:
         logger.debug("------------------Run object detection------------------")
-        od_img, od_dict = detect_from_image(cv2_img, od_model, od_opt)
+        od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt)
         od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
         od_row = pd.DataFrame(od_dfs.iloc[-1]).T
         od_row["datetime"] = [target_datetime]
