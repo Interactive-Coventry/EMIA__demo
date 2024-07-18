@@ -9,7 +9,6 @@ from emia_utils.database_utils import check_connection, connect, USES_FIREBASE
 from emia_utils.process_utils import prepare_features_for_vehicle_counts
 from emia_utils import database_utils
 from google.cloud import firestore
-from google.cloud.firestore_v1 import FieldFilter
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 from streamlit_folium import folium_static
 from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, FIXED_CAMERA_SPEC_TABLE_NAME, CAMERA_INFO_PATH, \
@@ -74,7 +73,12 @@ def get_expressway_camera_info_from_file():
 
 
 def get_expressway_camera_info_from_db():
-    df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params=[], conn=st.session_state.conn)
+
+    if USES_FIREBASE:
+        df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params={}, conn=st.session_state.firebase_db)
+    else:
+        df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params=[], conn=st.session_state.conn)
+
     df_lan.drop(columns=["update_frequency"], inplace=True)
     df_lan["datetime"] = None
     return df_lan
@@ -90,9 +94,7 @@ def append_weather_data_to_database(weather_df):
     if USES_FIREBASE:
         weather_df.reset_index(inplace=True, drop=False)
         row_dict = weather_df.iloc[0].to_dict()
-        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
-        row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "weather", "id")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "weather", "datetime")
     else:
         database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=st.session_state.conn)
 
@@ -101,9 +103,8 @@ def append_camera_location_data_to_database(location_df):
     if USES_FIREBASE:
         location_df.reset_index(inplace=True, drop=False)
         row_dict = location_df.iloc[0].to_dict()
-        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
-        row_dict["datetime"] = row_dict["id"]
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams", "id")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams",
+                                              ["datetime", "camera_id"])
     else:
         database_utils.append_df_to_table(location_df, "dashcams", append_only_new=True,
                                           conn=st.session_state.conn, append_index=True)
@@ -129,37 +130,18 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
 
     if USES_FIREBASE:
         current_date = core_utils.convert_datetime_to_string(current_date)
-        params = [["datetime", "<=", current_date]]
-        try:
-            c = st.session_state.firebase_db.collection("weather")
-        except AttributeError as e:
-            logger.error(f"AttributeError: {e}")
-            st.session_state.firebase_db = database_utils.init_firebase()
+        params = {"where": [["datetime", "<=", current_date]],
+                  "order_by": ["datetime", firestore.Query.ASCENDING],
+                  "limit": batch_size}
+        df_weather = database_utils.read_table_with_select("weather", params, st.session_state.firebase_db)
+        print(df_weather.iloc[0:5])
 
-        weather_data = st.session_state.firebase_db.collection("weather") \
-            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
-            .order_by("datetime", direction=firestore.Query.ASCENDING) \
-            .limit_to_last(batch_size).get()
-        df_weather = database_utils.collection_reference_to_dataframe(weather_data, is_list=True)
-        if len(df_weather) > 0:
-            df_weather.drop(columns=["id"], inplace=True)
-            df_weather["datetime"] = [core_utils.convert_string_to_date(x) for x in df_weather["datetime"]]
-        else:
-            df_weather = None # No weather data available
-
-        params = [["datetime", "<=", current_date],
-                  [camera_id_key_name, "==", str(camera_id)]]
-        vehicle_counts_data = st.session_state.firebase_db.collection("vehicle_counts") \
-            .where(filter=FieldFilter(params[0][0], params[0][1], params[0][2])) \
-            .where(filter=FieldFilter(params[1][0], params[1][1], params[1][2])) \
-            .order_by("datetime", direction=firestore.Query.ASCENDING) \
-            .limit_to_last(batch_size).get()
-        df_vehicles = database_utils.collection_reference_to_dataframe(vehicle_counts_data, is_list=True)
-        if len(df_vehicles) > 0:
-            df_vehicles.drop(columns=["id"], inplace=True)
-            df_vehicles["datetime"] = [core_utils.convert_string_to_date(x) for x in df_vehicles["datetime"]]
-        else:
-            df_vehicles = None # No vehicle data available
+        params = {"where": [["datetime", "<=", current_date],
+                            [camera_id_key_name, "==", str(camera_id)]],
+                  "order_by": ["datetime", firestore.Query.ASCENDING],
+                  "limit": batch_size}
+        df_vehicles = database_utils.read_table_with_select("vehicle_counts", params, st.session_state.firebase_db)
+        print(df_vehicles.iloc[0:5])
     else:
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
