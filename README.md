@@ -60,13 +60,16 @@ $ cd emia__demo
 $ touch Dockerfile
 ```
 - Check and copy into the Dockerfile, then 
+- Create a secrets.toml abd copy relevant content 
 ```
 $ docker system prune # Clean up , carefull because it cleans all 
 $ docker build -t emia__demo . 
-$ docker run -p 8531:8531 emia__demo 
-$ docker exec -it bold_kepler bash 
-$ docker exec bold_kepler mkdir -p /emia__demo/.streamlit
-$ docker cp secrets.toml bold_kepler:/emia__demo/.streamlit/secrets.toml
+$ docker run -p 8505:8505  emia__demo  
+$ docker exec -it <container_name> bash 
+$ mkdir -p /emia__demo/.streamlit
+$ docker cp secrets.toml <container_name>:/emia__demo/.streamlit/secrets.toml
+$ docker exec -it <container_name> bash
+$ streamlit run EMIA.py --server.port=8505
 ```
 Location of packages: /usr/local/lib/python3.9/site-packages/
 
