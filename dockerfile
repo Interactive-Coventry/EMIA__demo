@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install $(cat packages.txt) --fix-missing -y
 
 RUN pip3 install -r requirements.txt
 
-EXPOSE 8531
+EXPOSE 8505
 EXPOSE 9090
 
-HEALTHCHECK CMD curl --fail http://localhost:8531/_stcore/health
+HEALTHCHECK CMD curl --fail http://localhost:8505/_stcore/health
 
-ENTRYPOINT ["streamlit", "run", "EMIA.py", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "EMIA.py", "--server.port=8505", "--server.address=0.0.0.0"]
