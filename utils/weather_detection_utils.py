@@ -23,6 +23,10 @@ default_models_dir = pathjoin(core_utils.models_dir, "EMIA", "weather_from_image
 weather_dict = {"Clear": 0, "Clouds": 1, "Rain": 2, "Thunderstorm": 3}
 weather_classes = {v: k for k, v in weather_dict.items()}
 
+wetness_dict = {'Dry road surface': 0, 'Wet road surface': 1, 'Flooded road surface': 2}
+wetness_classes = {v: k for k, v in wetness_dict.items()}
+
+
 weather_description_dict = {"broken clouds": 0, "clear sky": 1, "heavy intensity rain": 2,
                             "light intensity shower rain": 3, "light rain": 4, "moderate rain": 5,
                             "scattered clouds": 6, "thunderstorm": 7, "thunderstorm with heavy rain": 8,
@@ -136,6 +140,7 @@ def predict(img, model=None, labels_map=None, model_name="efficientnet-b7"):
     prob = torch.softmax(outputs, dim=1)[0, idx].item() * 100
     return labels, prob, outputs
 
+
 def predict_weather_class(image_dataset_dir, filename, model=None, labels_map=None, model_name="efficientnet-b7"):
     img_file = pathjoin(image_dataset_dir, filename)
     img = Image.open(img_file)
@@ -205,19 +210,43 @@ def load_weather_detection_model():
     weather_class_model, weather_class_model_name = make(weather_class_model_name, checkpoint_path, weather_dict,
                                                          version, has_augmentation=has_augmentation,
                                                          has_transfer_learning=has_transfer_learning)
-    logger.debug(f"New weather classification model loaded from {weather_detection_checkpoint_file}. Model type {type(weather_class_model)}.\n")
+    logger.debug(
+        f"New weather classification model loaded from {weather_detection_checkpoint_file}. Model type {type(weather_class_model)}.\n")
     return weather_class_model, weather_class_model_name
+
+
+def load_wetness_detection_model():
+    MODELS_DIR = core_utils.models_dir
+    wetness_detection_folder = core_utils.settings["WETNESS_DETECTION"]["wetness_detection_folder"]
+    wetness_detection_checkpoint_file = core_utils.settings["WETNESS_DETECTION"]["wetness_detection_checkpoint_file"]
+    wetness_detection_model = core_utils.settings["WETNESS_DETECTION"]["wetness_detection_model"]
+
+    checkpoint_path = pathjoin(MODELS_DIR, wetness_detection_folder, wetness_detection_checkpoint_file + ".pts")
+    wetness_class_model_name, version, has_augmentation, has_transfer_learning = get_params_from_model_name(
+        wetness_detection_checkpoint_file)
+
+    wetness_class_model, wetness_class_model_name = make(wetness_class_model_name, checkpoint_path, wetness_dict,
+                                                         version, has_augmentation=has_augmentation,
+                                                         has_transfer_learning=has_transfer_learning)
+    logger.debug(
+        f"New wetness classification model loaded from {wetness_detection_checkpoint_file}. Model type {type(wetness_class_model)}.\n")
+    return wetness_class_model, wetness_class_model_name
 
 
 def make(base_model_name, weight_path, class_mapping, version, has_augmentation=False, has_transfer_learning=True):
     if base_model_name == "resnet-50":
         base_model = resnet50(weights="IMAGENET1K_V1")  # weights=None, weights="IMAGENET1K_V1"
         has_transfer_learning = True
+    elif base_model_name == "resnet50-IMAGENET1K_V2":
+        base_model = resnet50(weights="IMAGENET1K_V2")
+        has_transfer_learning = True
     elif base_model_name == "resnet-18":
         base_model = resnet18(weights="IMAGENET1K_V1")  # weights=None, weights="IMAGENET1K_V1"
         has_transfer_learning = True
     elif base_model_name == "efficientnet-b7":
         base_model = EfficientNet.from_pretrained("efficientnet-b7")
+    else:
+        raise ValueError(f"Model {base_model_name} not supported.")
 
     if has_transfer_learning:
         for param in base_model.parameters():
@@ -256,6 +285,7 @@ def make(base_model_name, weight_path, class_mapping, version, has_augmentation=
     model_ld = train_with_lightning.pl_load_trained_model(target_model_class, weight_path, **model_params)
 
     return model_ld, model_filename
+
 
 def set_results(label, prob):
     weather_label = "{label:<75} ({p:.2f}%)".format(label=label, p=prob)

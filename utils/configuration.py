@@ -4,12 +4,21 @@ from libs.foxutils.utils import core_utils
 DEFAULT_IMAGE_FILE = "1703_20230913183132.jpg"
 DEFAULT_CAMERA_ID = "1703"
 
-FIXED_CAMERA_SPEC_TABLE_NAME = "fixed_camera_specs"
+CAMERA_INFO_TABLE_NAME = "camera_specs"
+DASHCAM_TABLE_NAME = "dashcam"
+VEHICLE_COUNTS_TABLE_NAME = "vehicle_counts"
+WEATHER_TABLE_NAME= "weather"
+BUS_ARRIVAL_TABLE_NAME = "bus_arrival"
+IMAGE_ANALYSIS_TABLE_NAME = "image_analysis"
+
 CAMERA_INFO_PATH = pathjoin("assets", "maps", "camera_ids.csv")
 
 camera_id_key_name = "camera_id"
 latitude_key_name = "lat"
 longitude_key_name = "lng"
+datetime_key_name = "datetime"
+
+camera_types = {0: "Expressway CCTV", 1: "Dashcam"}
 
 DATASETS_DIR = core_utils.settings["DIRECTORY"]["datasets_dir"]
 DEFAULT_DATASET_DIR = pathjoin(DATASETS_DIR, "test", DEFAULT_CAMERA_ID, "")
