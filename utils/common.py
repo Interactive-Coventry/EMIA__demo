@@ -11,17 +11,19 @@ from emia_utils import database_utils
 from google.cloud import firestore
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 from streamlit_folium import folium_static
-from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, FIXED_CAMERA_SPEC_TABLE_NAME, CAMERA_INFO_PATH, \
-    camera_id_key_name
-from utils.map_utils import print_expressway_camera_locations
+from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, CAMERA_INFO_PATH, \
+    camera_id_key_name, CAMERA_INFO_TABLE_NAME
+from utils.map_utils import print_camera_locations
 
 logger = core_utils.get_logger("emia.common")
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
 HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
 
-SHOW_ANOMALY_LABEL = False
-SHOW_WEATHER_LABEL = False
-SHOW_VEHICLE_FORECAST_GRAPH = True
+SHOW_ANOMALY_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_label"]))
+SHOW_ANOMALY_GENERAL_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_general_label"]))
+SHOW_WEATHER_LABEL = bool(eval(core_utils.settings["WEATHER_DETECTION"]["show_weather_label"]))
+SHOW_WETNESS_LABEL = bool(eval(core_utils.settings["WETNESS_DETECTION"]["show_wetness_label"]))
+SHOW_VEHICLE_FORECAST_GRAPH = bool(eval(core_utils.settings["VEHICLE_FORECASTING"]["show_vehicle_forecast_graph"]))
 
 
 def set_value(key, value, reset=False):
@@ -72,20 +74,18 @@ def get_expressway_camera_info_from_file():
     return df_lan
 
 
-def get_expressway_camera_info_from_db():
-
+def get_camera_info_from_db():
     if USES_FIREBASE:
-        df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params={}, conn=st.session_state.firebase_db)
+        df_lan = database_utils.read_table_with_select(CAMERA_INFO_TABLE_NAME, params={},
+                                                       conn=st.session_state.firebase_db)
     else:
-        df_lan = database_utils.read_table_with_select(FIXED_CAMERA_SPEC_TABLE_NAME, params=[], conn=st.session_state.conn)
-
-    df_lan.drop(columns=["update_frequency"], inplace=True)
-    df_lan["datetime"] = None
+        df_lan = database_utils.read_table_with_select(CAMERA_INFO_TABLE_NAME, params=[],
+                                                       conn=st.session_state.conn)
     return df_lan
 
 
 def get_target_camera_info(camera_id):
-    df_lan = get_expressway_camera_info_from_db()
+    df_lan = get_camera_info_from_db()
     df_coord = df_lan[df_lan[camera_id_key_name] == str(camera_id)]
     return df_coord
 
@@ -122,7 +122,8 @@ def append_vehicle_counts_data_to_database(vehicle_counts_df):
             logger.debug(f"Table vehicle_counts , row {row_dict}.")
             logger.error(f"AttributeError: {e}")
     else:
-        database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True, conn=st.session_state.conn)
+        database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True,
+                                          conn=st.session_state.conn)
 
 
 def read_vehicle_forecast_data_from_database(current_date, camera_id, history_length):
@@ -141,7 +142,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
                   "order_by": ["datetime", firestore.Query.ASCENDING],
                   "limit": batch_size}
         df_vehicles = database_utils.read_table_with_select("vehicle_counts", params, st.session_state.firebase_db)
-        print(df_vehicles.iloc[0:5])
+
     else:
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
@@ -157,7 +158,7 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     df_features = prepare_features_for_vehicle_counts(df_vehicles, df_weather, dropna=True,
                                                       include_weather_description=True)
     df_features = df_features.iloc[-history_length:]
-    #logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
+    # logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
     return df_features, latest_weather_info
 
 
@@ -167,9 +168,9 @@ def get_target_image(camera_info, camera_selection, image_file=None):
 
     logger.debug(f"Reading image from {image_file}")
     img = Image.open(image_file)
-    fig = print_expressway_camera_locations(camera_info, [camera_selection], )
+    map_fig = print_camera_locations(camera_info, [camera_selection])
     logger.debug(f"Finished preparing preview.")
-    return img, fig
+    return img, map_fig
 
 
 def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
@@ -191,19 +192,21 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
 
                     from geopy.geocoders import Nominatim
                     geolocator = Nominatim(user_agent="emia")
-                    location_ = geolocator.reverse( str(lat) + ", " + str(lng))
+                    location_ = geolocator.reverse(str(lat) + ", " + str(lng))
 
                     st.markdown(f"**Date**: {outputs['target_datetime'].strftime('%Y/%m/%d %H:%M:%S')}")
                     st.markdown(f"**Location**: {location_.address}")
 
             col3, col4 = st.columns(2)
             with col3:
-                st.markdown("##### Detection")
+                st.markdown("##### Road Condition")
                 st.image(outputs["vehicle_detection_img"], use_column_width=True)
 
                 if SHOW_WEATHER_LABEL:
-                    st.markdown("##### Weather Label")
                     for k, v in outputs["weather_detection_label"].items():
+                        st.progress(v, text=k)
+                if SHOW_WETNESS_LABEL:
+                    for k, v in outputs["wetness_detection_label"].items():
                         st.progress(v, text=k)
 
             with col4:
@@ -211,9 +214,7 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                 st.image(outputs["anomaly_detection_img"], use_column_width=True)
 
                 if SHOW_ANOMALY_LABEL:
-                    st.markdown("##### Anomaly Label")
-                    show_general_label = True
-                    if show_general_label:
+                    if SHOW_ANOMALY_GENERAL_LABEL:
                         for k, v in outputs["anomaly_detection_label"].items():
                             tt = k.split("(")[0]
                             break
@@ -248,7 +249,7 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                     vf_df.loc[vf_df.index[len(vf_df) - 1]] = [target_val[0], target_val[0]]
                     vf_df.loc[pred_datetime, :] = [None, pred_value]
                     st.line_chart(vf_df, use_container_width=True)
-                    #logger.debug(vf_df)
+                    # logger.debug(vf_df)
                 except ValueError as e:
                     pass
                 except TypeError as e:
@@ -270,7 +271,6 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
             st.markdown("No results available during testing.")
 
 
-
 def setup_sidebar_info():
     st.sidebar.markdown("""
         <style>
@@ -281,9 +281,9 @@ def setup_sidebar_info():
         """, unsafe_allow_html=True)
 
     st.sidebar.image("assets/InterCov-logo_web.png", width=200)
-    #st.sidebar.markdown(
+    # st.sidebar.markdown(
     #    """[InteractiveCoventry.com/EMIA](https://www.interactivecoventry.com/emia/#main)
     #    """
-    #)
+    # )
 
-    #st.sidebar.image("assets/qr.png", width=150)
+    # st.sidebar.image("assets/qr.png", width=150)

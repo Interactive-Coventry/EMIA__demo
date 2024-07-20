@@ -2,6 +2,8 @@ import warnings
 
 import numpy as np
 from emia_utils import download_utils, database_utils
+from emia_utils.database_utils import USES_FIREBASE
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import libs.foxutils.utils.core_utils as core_utils
 
@@ -30,7 +32,8 @@ import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
 from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH, camera_id_key_name, latitude_key_name, \
-    longitude_key_name
+    longitude_key_name, VEHICLE_COUNTS_TABLE_NAME, datetime_key_name
+from google.cloud import firestore
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -82,6 +85,7 @@ if IS_TEST or DISABLE_PROSSECING:
     logger.info("\n\n------------------Test Mode------------------")
     vf_model, vf_scaler = None, None
     weather_class_model, weather_class_model_name = None, None
+    wetness_class_model, wetness_class_model_name = None, None
     ad_model, ad_tfms, ad_config = None, None, None
     ad_trainer = None
     od_model, od_opt = None, None
@@ -90,6 +94,7 @@ else:
     logger.info("\n\n------------------Load Models------------------")
     vf_model, vf_scaler = vf.load_vehicle_forecasting_model()
     weather_class_model, weather_class_model_name = wd.load_weather_detection_model()
+    wetness_class_model, wetness_class_model_name = wd.load_wetness_detection_model()
     ad_model, ad_tfms, ad_config = ad.load_anomaly_detection_model(
         device=DEVICE, set_up_trainer=not RUN_PER_FRAME)
     if not RUN_PER_FRAME:
@@ -158,12 +163,12 @@ def process_batch(img_list, device):
         else:
             logger.debug("------------------Run object detection------------------")
             od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt)
-            od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
+            od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict], keep_all_detected_classes=False)
             od_row = pd.DataFrame(od_dfs.iloc[-1]).T
-            od_row["datetime"] = [target_datetime]
+            od_row[datetime_key_name] = [target_datetime]
             od_row[camera_id_key_name] = [camera_id]
             vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
-            vc_df.set_index("datetime", inplace=True, drop=True)
+            vc_df.set_index(datetime_key_name, inplace=True, drop=True)
             db_results = pd.concat([db_results, vc_df], axis=0)
 
             logger.debug("------------------Run weather detection------------------")
@@ -195,26 +200,28 @@ def process_frame(img_dict, device, camera_id=None):
     else:
         logger.debug("------------------Run object detection------------------")
         od_img, od_dict = detect_from_image(cv2_img.copy(), od_model, od_opt)
-        od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict])
+        od_dfs = od.post_process_detect_vehicles(class_dict_list=[od_dict], keep_all_detected_classes=False)
         od_row = pd.DataFrame(od_dfs.iloc[-1]).T
-        od_row["datetime"] = [target_datetime]
+        od_row[datetime_key_name] = [target_datetime]
         od_row[camera_id_key_name] = [camera_id]
         vc_df = pd.DataFrame(make_vehicle_counts_df(od_row.iloc[0].to_dict()), index=[0])
-        vc_df.set_index("datetime", inplace=True, drop=True)
+        vc_df.set_index(datetime_key_name, inplace=True, drop=True)
         append_vehicle_counts_data_to_database(vc_df)
         results_dict["object_detection"] = od.set_results(od_img, od_row)
 
         logger.debug("------------------Run weather detection------------------")
         wd_label, wd_prob, _ = wd.predict(pil_img, weather_class_model, wd.weather_classes, weather_class_model_name)
-
         logger.debug(f"Weather detection predictions: {wd_label}, {wd_prob}")
         results_dict["weather_detection"] = wd.set_results(wd_label, wd_prob)
+
+        logger.debug("------------------Run road surface wetness detection------------------")
+        wet_label, wet_prob, _ = wd.predict(pil_img, wetness_class_model, wd.wetness_classes, wetness_class_model_name)
+        logger.debug(f"Wetness detection predictions: {wet_label}, {wet_prob}")
+        results_dict["wetness_detection"] = wd.set_results(wet_label, wet_prob)
 
         logger.debug("------------------Run anomaly detection------------------")
         ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
         results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
-        # image_utils.write_image("heatmap.jpg", ad_config.project.path, results_dict["anomaly_detection"]["heat_map_image"],
-        #                        ad.HEATMAP_FOLDER_NAME)
         logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
 
         logger.debug("------------------Run vehicle flow prediction------------------")
@@ -258,8 +265,8 @@ def get_dashcam_location(dashcam_id, current_datetime):
         df_coord = pd.DataFrame({camera_id_key_name: [dashcam_id],
                                  latitude_key_name: [location["lat"]],
                                  longitude_key_name: [location["lng"]],
-                                 "datetime": [current_datetime]})
-        df_coord.set_index("datetime", inplace=True, drop=True)
+                                 datetime_key_name: [current_datetime]})
+        df_coord.set_index(datetime_key_name, inplace=True, drop=True)
         return df_coord
     else:
         # Request failed
@@ -300,6 +307,9 @@ def get_processing_results(img, camera_id=None, get_location=False):
 
         wd_label_str = get_label_and_prob_string(results["weather_detection"]["label"],
                                                  results["weather_detection"]["prob"])
+
+        wet_label_str = get_label_and_prob_string(results["wetness_detection"]["label"],
+                                                 results["wetness_detection"]["prob"])
         ad_label_str = get_label_and_prob_string(results["anomaly_detection"]["label"],
                                                  results["anomaly_detection"]["prob"])
         weather_info = results["weather_info"]
@@ -336,6 +346,7 @@ def get_processing_results(img, camera_id=None, get_location=False):
             "vehicle_detection_img": results["object_detection"]["image"],
             "vehicle_detection_df": vehicles_df,
             "weather_detection_label": {wd_label_str: results["weather_detection"]["prob"]},
+            "wetness_detection_label": {wet_label_str: results["wetness_detection"]["prob"]},
             "anomaly_detection_label": {ad_label_str: results["anomaly_detection"]["prob"]},
             "anomaly_detection_img": results["anomaly_detection"]["heat_map"],
             "vehicle_forecast": {"previous_counts": vf_df, "predictions": vf_predictions},
@@ -431,7 +442,7 @@ def get_insights_and_present_results(target_camera_id, savedir, preview_containe
                 st.markdown("##### Target image preview")
                 st.image(preview_img, use_column_width=True)
             with col2:
-                st.markdown("##### Expressway CCTV locations")
+                st.markdown("##### Camera location")
                 st.pyplot(map_fig)
 
     location = get_target_camera_info(target_camera_id)
@@ -445,7 +456,7 @@ def fetch_current_data(target_camera_id):
     download_utils.fetch_traffic_images_from_link(TRAFFIC_IMAGES_PATH, target_camera_id=[target_camera_id])
     weather_metrics_dict = download_utils.download_weather_info_from_openweather(download_utils.TARGET_CITY)
     weather_df = pd.DataFrame(make_weather_df(weather_metrics_dict), index=[0])
-    weather_df.set_index(["datetime"], inplace=True, drop=True)
+    weather_df.set_index([datetime_key_name], inplace=True, drop=True)
     append_weather_data_to_database(weather_df)
 
 
@@ -456,7 +467,7 @@ def fetch_current_camera_data(target_camera_id=None):
 def fetch_current_weather_data():
     weather_metrics_dict = download_utils.download_weather_info_from_openweather(download_utils.TARGET_CITY)
     weather_df = pd.DataFrame(make_weather_df(weather_metrics_dict), index=[0])
-    weather_df.set_index(["datetime"], inplace=True, drop=True)
+    weather_df.set_index([datetime_key_name], inplace=True, drop=True)
     append_weather_data_to_database(weather_df)
 
 
@@ -502,15 +513,24 @@ def update_global_state(target_cameras):
 
 def update_traffic_stats(target_cameras):
     update_global_state(target_cameras)
+    batch_size = len(target_cameras)
 
     current_date = core_utils.get_current_datetime(tz=target_tz)
-    batch_size = len(target_cameras)
-    camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
-    fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
-    params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
-              [camera_id_key_name, "in", " (" + camera_str + ")"]]
-    params[-1].append(fetch_top)
-    df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
+    if USES_FIREBASE:
+        params = {"where": [[datetime_key_name, "<=", current_date],
+                            [camera_id_key_name, "in", target_cameras]],
+                  "order_by": [datetime_key_name, firestore.Query.ASCENDING],
+                  "limit": batch_size}
+        df_vehicles = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params, st.session_state.firebase_db)
+
+    else:
+        batch_size = len(target_cameras)
+        camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
+        fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
+        params = [[datetime_key_name, "<=", database_utils.enclose_in_quotes(current_date), "AND"],
+                  [camera_id_key_name, "in", " (" + camera_str + ")"]]
+        params[-1].append(fetch_top)
+        df_vehicles = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params, conn=st.session_state.conn)
     return df_vehicles
 
 
