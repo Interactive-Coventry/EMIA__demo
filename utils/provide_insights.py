@@ -502,29 +502,36 @@ def update_global_state(target_cameras):
     for target_camera_id in target_cameras:
         savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                            TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
-        file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
-        target_file = pathjoin(savedir, file_list[0])
 
-        image_file, folder, _ = split_filename_folder(target_file)
-        current_datetime = get_target_datetime(image_file)
+        try:
+            file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
+            target_file = pathjoin(savedir, file_list[0])
 
-        target_images.append({"image": cv2.imread(target_file), "datetime": current_datetime,
-                              camera_id_key_name: target_camera_id})
+            image_file, folder, _ = split_filename_folder(target_file)
+            current_datetime = get_target_datetime(image_file)
+
+            target_images.append({"image": cv2.imread(target_file), "datetime": current_datetime,
+                                  camera_id_key_name: target_camera_id})
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
 
     process_batch(target_images, DEVICE)
 
 
 def update_traffic_stats(target_cameras):
     update_global_state(target_cameras)
-    batch_size = len(target_cameras)
 
     current_date = core_utils.get_current_datetime(tz=target_tz)
     if USES_FIREBASE:
-        params = {"where": [[datetime_key_name, "<=", current_date],
-                            [camera_id_key_name, "in", target_cameras]],
-                  "order_by": [datetime_key_name, firestore.Query.ASCENDING],
-                  "limit": batch_size}
-        df_vehicles = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params, st.session_state.firebase_db)
+        df_vehicles = None
+        for target_camera in target_cameras.values:
+            params = {"where": [[datetime_key_name, "<=", current_date],
+                                [camera_id_key_name, "==", target_camera]],
+                      "order_by": [datetime_key_name, firestore.Query.ASCENDING],
+                      "limit": 1}
+            df_ = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params,
+                                                                st.session_state.firebase_db)
+            df_vehicles = pd.concat([df_vehicles, df_]) if df_vehicles is not None else df_
 
     else:
         batch_size = len(target_cameras)
