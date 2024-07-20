@@ -17,6 +17,9 @@ camera_id_key_name = "camera_id"
 latitude_key_name = "lat"
 longitude_key_name = "lng"
 datetime_key_name = "datetime"
+anomaly_type_key_name = "anomaly_type"
+weather_type_key_name = "weather_type"
+wetness_type_key_name = "wetness_type"
 
 camera_types = {0: "Expressway CCTV", 1: "Dashcam"}
 

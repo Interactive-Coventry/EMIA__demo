@@ -1,19 +1,22 @@
 from datetime import timedelta
 from os.path import join as pathjoin
 
+import libs.foxutils.utils.core_utils as core_utils
 import pandas as pd
 import streamlit as st
 from PIL import Image
-import libs.foxutils.utils.core_utils as core_utils
+from emia_utils import database_utils
 from emia_utils.database_utils import check_connection, connect, USES_FIREBASE
 from emia_utils.process_utils import prepare_features_for_vehicle_counts
-from emia_utils import database_utils
 from google.cloud import firestore
 from libs.foxutils.utils.display_and_plot import plot_markers_on_map
 from streamlit_folium import folium_static
+
 from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, CAMERA_INFO_PATH, \
-    camera_id_key_name, CAMERA_INFO_TABLE_NAME
+    camera_id_key_name, CAMERA_INFO_TABLE_NAME, datetime_key_name, anomaly_type_key_name, weather_type_key_name, \
+    wetness_type_key_name, IMAGE_ANALYSIS_TABLE_NAME, VEHICLE_COUNTS_TABLE_NAME, WEATHER_TABLE_NAME
 from utils.map_utils import print_camera_locations
+from utils.weather_detection_utils import wetness_dict, weather_dict
 
 logger = core_utils.get_logger("emia.common")
 HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
@@ -94,9 +97,9 @@ def append_weather_data_to_database(weather_df):
     if USES_FIREBASE:
         weather_df.reset_index(inplace=True, drop=False)
         row_dict = weather_df.iloc[0].to_dict()
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "weather", "datetime")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, WEATHER_TABLE_NAME, datetime_key_name)
     else:
-        database_utils.append_df_to_table(weather_df, "weather", append_only_new=True, conn=st.session_state.conn)
+        database_utils.append_df_to_table(weather_df, WEATHER_TABLE_NAME, append_only_new=True, conn=st.session_state.conn)
 
 
 def append_camera_location_data_to_database(location_df):
@@ -104,7 +107,7 @@ def append_camera_location_data_to_database(location_df):
         location_df.reset_index(inplace=True, drop=False)
         row_dict = location_df.iloc[0].to_dict()
         database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams",
-                                              ["datetime", "camera_id"])
+                                              [datetime_key_name, "camera_id"])
     else:
         database_utils.append_df_to_table(location_df, "dashcams", append_only_new=True,
                                           conn=st.session_state.conn, append_index=True)
@@ -112,17 +115,39 @@ def append_camera_location_data_to_database(location_df):
 
 def append_vehicle_counts_data_to_database(vehicle_counts_df):
     if USES_FIREBASE:
+        raise NotImplementedError("Firebase does not support image analysis data.")
+
         vehicle_counts_df.reset_index(inplace=True, drop=False)
         row_dict = vehicle_counts_df.iloc[0].to_dict()
-        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
-        row_dict["datetime"] = row_dict["id"]
+        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict[datetime_key_name])
+        row_dict[datetime_key_name] = row_dict["id"]
         try:
-            database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
+            database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, VEHICLE_COUNTS_TABLE_NAME, "id")
         except AttributeError as e:
             logger.debug(f"Table vehicle_counts , row {row_dict}.")
             logger.error(f"AttributeError: {e}")
     else:
-        database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True,
+        database_utils.append_df_to_table(vehicle_counts_df, VEHICLE_COUNTS_TABLE_NAME, append_only_new=True,
+                                          conn=st.session_state.conn)
+
+def append_image_analysis_data_to_database(target_datetime, camera_id, anomaly_label, weather_label, wetness_label):
+
+    row_dict = {datetime_key_name: target_datetime,
+                camera_id_key_name: str(camera_id),
+                anomaly_type_key_name: {"Normal": 0, "Anomaly": 1}.get(anomaly_label),
+                weather_type_key_name: weather_dict.get(weather_label),
+                wetness_type_key_name: wetness_dict.get(wetness_label)
+                }
+    im_analysis_df = pd.DataFrame([row_dict])
+    im_analysis_df.set_index(datetime_key_name, inplace=True, drop=True)
+
+    if USES_FIREBASE:
+        raise NotImplementedError("Firebase does not support image analysis data.")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, IMAGE_ANALYSIS_TABLE_NAME,
+                                              datetime_key_name)
+
+    else:
+        database_utils.append_df_to_table(im_analysis_df, IMAGE_ANALYSIS_TABLE_NAME, append_only_new=True,
                                           conn=st.session_state.conn)
 
 
@@ -131,25 +156,25 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
 
     if USES_FIREBASE:
         current_date = core_utils.convert_datetime_to_string(current_date)
-        params = {"where": [["datetime", "<=", current_date]],
-                  "order_by": ["datetime", firestore.Query.ASCENDING],
+        params = {"where": [[datetime_key_name, "<=", current_date]],
+                  "order_by": [datetime_key_name, firestore.Query.ASCENDING],
                   "limit": batch_size}
-        df_weather = database_utils.read_table_with_select("weather", params, st.session_state.firebase_db)
+        df_weather = database_utils.read_table_with_select(WEATHER_TABLE_NAME, params, st.session_state.firebase_db)
         print(df_weather.iloc[0:5])
 
-        params = {"where": [["datetime", "<=", current_date],
+        params = {"where": [[datetime_key_name, "<=", current_date],
                             [camera_id_key_name, "==", str(camera_id)]],
-                  "order_by": ["datetime", firestore.Query.ASCENDING],
+                  "order_by": [datetime_key_name, firestore.Query.ASCENDING],
                   "limit": batch_size}
-        df_vehicles = database_utils.read_table_with_select("vehicle_counts", params, st.session_state.firebase_db)
+        df_vehicles = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params, st.session_state.firebase_db)
 
     else:
-        params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
+        params = [[datetime_key_name, "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
         params[-1].append(fetch_top)
-        df_weather = database_utils.read_table_with_select("weather", params, conn=st.session_state.conn)
+        df_weather = database_utils.read_table_with_select(WEATHER_TABLE_NAME, params, conn=st.session_state.conn)
 
-        params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
+        params = [[datetime_key_name, "<=", database_utils.enclose_in_quotes(current_date), "AND"],
                   [camera_id_key_name, "=", database_utils.enclose_in_quotes(str(camera_id))]]
         params[-1].append(fetch_top)
         df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)

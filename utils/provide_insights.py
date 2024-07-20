@@ -23,7 +23,7 @@ import requests
 from emia_utils.process_utils import make_vehicle_counts_df, make_weather_df
 from utils.common import read_vehicle_forecast_data_from_database, append_vehicle_counts_data_to_database, \
     append_camera_location_data_to_database, append_weather_data_to_database, get_target_image, present_results, \
-    get_target_camera_info
+    get_target_camera_info, append_image_analysis_data_to_database
 from libs.foxutils.utils.train_functionalities import get_label_and_prob_string
 from libs.foxutils.streams.stream_utils import LoadStreams
 from libs.tools.object_detection import load_object_detection_model, detect_from_image
@@ -223,6 +223,9 @@ def process_frame(img_dict, device, camera_id=None):
         ad_result = ad.infer_from_image(cv2_img, ad_model, device, ad_tfms)
         results_dict["anomaly_detection"] = ad.set_results(cv2_img, ad_result, orig_dim)
         logger.debug(f"Anomaly detection predictions: {ad_result['pred_labels']}, {ad_result['pred_scores']}")
+
+        append_image_analysis_data_to_database(target_datetime, camera_id,results_dict["anomaly_detection"]["label"],
+                                               wd_label, wet_label)
 
         logger.debug("------------------Run vehicle flow prediction------------------")
         vf_feature_df, weather_info = read_vehicle_forecast_data_from_database(target_datetime, camera_id,
