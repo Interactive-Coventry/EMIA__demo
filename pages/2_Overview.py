@@ -17,7 +17,7 @@ logger = core_utils.get_logger("page.overview_view")
 camera_info = get_camera_info_from_db()
 camera_info.set_index(camera_id_key_name, inplace=True, drop=False)
 camera_info["colors"] = [(0, 0, 0, 0) for x in range(len(camera_info))]
-available_cameras = camera_info[camera_id_key_name].iloc[0:4]
+available_cameras = camera_info[camera_id_key_name]
 
 
 def setup_overview_view():
