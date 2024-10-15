@@ -65,11 +65,13 @@ $ touch Dockerfile
 $ docker system prune # Clean up , carefull because it cleans all 
 $ docker build -t emia__demo . 
 $ docker run -p 8505:8505  emia__demo  
-$ docker exec -it <container_name> bash 
-$ mkdir -p /emia__demo/.streamlit
+$ docker exec -it <container_name> bash
+inside the container: $ mkdir -p /emia__demo/.streamlit
 $ docker cp secrets.toml <container_name>:/emia__demo/.streamlit/secrets.toml
 $ docker exec -it <container_name> bash
-$ streamlit run EMIA.py --server.port=8505
+inside the container: $ streamlit run EMIA.py --server.port=8505
+Optional: inside the container: $ apt-get install vim
+
 ```
 Location of packages: /usr/local/lib/python3.9/site-packages/
 
