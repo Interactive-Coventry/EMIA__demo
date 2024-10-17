@@ -29,8 +29,9 @@ import utils.object_detection as od
 import utils.weather_detection_utils as wd
 import utils.anomaly_detection as ad
 import utils.vehicle_forecasting as vf
+from emia_utils.database_utils import USES_FIREBASE
 from utils.configuration import DEFAULT_FILEPATH, TRAFFIC_IMAGES_PATH, camera_id_key_name, latitude_key_name, \
-    longitude_key_name
+    longitude_key_name, VEHICLE_COUNTS_TABLE_NAME, datetime_key_name
 
 DEVICE = core_utils.device
 logger.info(f"Running on {DEVICE}")
@@ -496,14 +497,17 @@ def update_global_state(target_cameras):
     for target_camera_id in target_cameras:
         savedir = pathjoin(core_utils.datasets_dir, download_utils.DATAMALL_FOLDER,
                            TRAFFIC_IMAGES_PATH.replace("/", sep).replace("?", ""), target_camera_id, "")
-        file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
-        target_file = pathjoin(savedir, file_list[0])
+        try:
+            file_list = core_utils.find_files_by_extension(savedir, ".jpg", ascending=False)
+            target_file = pathjoin(savedir, file_list[0])
 
-        image_file, folder, _ = split_filename_folder(target_file)
-        current_datetime = get_target_datetime(image_file)
+            image_file, folder, _ = split_filename_folder(target_file)
+            current_datetime = get_target_datetime(image_file)
 
-        target_images.append({"image": cv2.imread(target_file), "datetime": current_datetime,
-                              camera_id_key_name: target_camera_id})
+            target_images.append({"image": cv2.imread(target_file), "datetime": current_datetime,
+                                  camera_id_key_name: target_camera_id})
+        except FileNotFoundError as e:
+            logger.error(f"FileNotFoundError: {e}")
 
     process_batch(target_images, DEVICE)
 
@@ -512,13 +516,27 @@ def update_traffic_stats(target_cameras):
     update_global_state(target_cameras)
 
     current_date = core_utils.get_current_datetime(tz=target_tz)
-    batch_size = len(target_cameras)
-    camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
-    fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
-    params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date), "AND"],
-              [camera_id_key_name, "in", " (" + camera_str + ")"]]
-    params[-1].append(fetch_top)
-    df_vehicles = database_utils.read_table_with_select('vehicle_counts', params, conn=st.session_state.conn)
+    if USES_FIREBASE:
+        from google.cloud import firestore
+
+        df_vehicles = None
+        for target_camera in target_cameras:
+            params = {"where": [[datetime_key_name, "<=", current_date],
+                                [camera_id_key_name, "==", target_camera]],
+                      "order_by": [datetime_key_name, firestore.Query.ASCENDING],
+                      "limit": 1}
+            df_ = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params,
+                                                                st.session_state.firebase_db)
+            df_vehicles = pd.concat([df_vehicles, df_]) if df_vehicles is not None else df_
+
+    else:
+        batch_size = len(target_cameras)
+        camera_str = ", ".join([database_utils.enclose_in_quotes(str(x)) for x in target_cameras])
+        fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
+        params = [[datetime_key_name, "<=", database_utils.enclose_in_quotes(current_date), "AND"],
+                  [camera_id_key_name, "in", " (" + camera_str + ")"]]
+        params[-1].append(fetch_top)
+        df_vehicles = database_utils.read_table_with_select(VEHICLE_COUNTS_TABLE_NAME, params, conn=st.session_state.conn)
     return df_vehicles
 
 

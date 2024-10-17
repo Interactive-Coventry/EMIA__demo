@@ -1,4 +1,3 @@
-import pandas as pd
 from os.path import join as pathjoin
 
 from matplotlib import pyplot as plt
@@ -36,11 +35,15 @@ def assign_heatmap_colors(values, colormap_name='viridis'):
     return colored_values
 
 
-def print_camera_locations(camera_info, camera_list):
+def print_camera_locations(camera_info, camera_list, show_legend=True):
     df_info = camera_info[camera_info[camera_id_key_name].isin(camera_list)]
 
     singapore = gpd.read_file(pathjoin("assets", "maps", "SGP_adm0.shp"))
-    colors = ["red" if x == 0 else "blue" for x in camera_info["camera_type"]]
+    if "colors" in camera_info.columns:
+        colors = camera_info["colors"].values
+    else:
+        colors = ["red" if x == 0 else "blue" for x in camera_info["camera_type"]]
+
     if "is_selected" in camera_info.columns:
         markers = ["o" if x == 0 else "d" for x in camera_info["is_selected"]]
     else:
@@ -70,22 +73,25 @@ def print_camera_locations(camera_info, camera_list):
         else:
             gpd.GeoSeries([point]).plot(ax=ax, color=color, marker=marker, markersize=15)
 
-    gdf_weather.plot(ax=ax, marker="s", color="cyan", markersize=15)
+    if show_legend: # Shows weather station only when legend is enabled
+        gdf_weather.plot(ax=ax, marker="s", color="cyan", markersize=15)
+
     if last_point is not None:
         gpd.GeoSeries([last_point[0]]).plot(ax=ax, color=last_point[1], marker=last_point[2], markersize=30,
                                             edgecolor="black")
 
-    # Add a dummy plot for the legend
-    dummy_point_expr = plt.Line2D([0], [0], marker="o", color="red", markersize=5, linewidth=0,
-                                   label=camera_types[0])
-    dummy_point_mobile = plt.Line2D([0], [0], marker="o", color="blue", markersize=5, linewidth=0,
-                                    label=camera_types[1])
-    dummy_point_selected = plt.Line2D([0], [0], marker="d", color="black", markersize=5, linewidth=0,
-                                    label="Selected camera")
-    dummy_point_station = plt.Line2D([0], [0], marker="s", color="cyan", markersize=5, linewidth=0,
-                                    label="Weather station")
-    ax.legend(handles=[dummy_point_expr, dummy_point_mobile, dummy_point_selected, dummy_point_station],
-              loc="lower right", fontsize=8)
+    if show_legend:
+        # Add a dummy plot for the legend
+        dummy_point_expr = plt.Line2D([0], [0], marker="o", color="red", markersize=5, linewidth=0,
+                                       label=camera_types[0])
+        dummy_point_mobile = plt.Line2D([0], [0], marker="o", color="blue", markersize=5, linewidth=0,
+                                        label=camera_types[1])
+        dummy_point_selected = plt.Line2D([0], [0], marker="d", color="black", markersize=5, linewidth=0,
+                                        label="Selected camera")
+        dummy_point_station = plt.Line2D([0], [0], marker="s", color="cyan", markersize=5, linewidth=0,
+                                        label="Weather station")
+        ax.legend(handles=[dummy_point_expr, dummy_point_mobile, dummy_point_selected, dummy_point_station],
+                  loc="lower right", fontsize=8)
 
     ax.axis("off")
 

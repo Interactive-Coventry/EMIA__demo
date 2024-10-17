@@ -20,7 +20,7 @@ logger = core_utils.get_logger("utils.weather_detection_utils")
 
 device = core_utils.device
 default_models_dir = pathjoin(core_utils.models_dir, "EMIA", "weather_from_image")
-weather_dict = {"Clear": 0, "Clouds": 1, "Rain": 2, "Thunderstorm": 3}
+weather_dict = {"Clear": 0, "Clouds": 1, "Rain": 2, "Thunderstorm": 3} #  "Mist": 4
 weather_classes = {v: k for k, v in weather_dict.items()}
 
 wetness_dict = {'Dry road surface': 0, 'Wet road surface': 1, 'Flooded road surface': 2}
@@ -30,7 +30,8 @@ wetness_classes = {v: k for k, v in wetness_dict.items()}
 weather_description_dict = {"broken clouds": 0, "clear sky": 1, "heavy intensity rain": 2,
                             "light intensity shower rain": 3, "light rain": 4, "moderate rain": 5,
                             "scattered clouds": 6, "thunderstorm": 7, "thunderstorm with heavy rain": 8,
-                            "thunderstorm with light rain": 9, "thunderstorm with rain": 10}
+                            "thunderstorm with light rain": 9, "thunderstorm with rain": 10, "overcast clouds": 11,
+                            }
 weather_description_classes = {v: k for k, v in weather_description_dict.items()}
 
 tfms = transforms.Compose([transforms.Resize((224, 224)),

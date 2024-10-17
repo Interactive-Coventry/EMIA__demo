@@ -1,29 +1,6 @@
-from datetime import timedelta
-from os.path import join as pathjoin
-
-import pandas as pd
 import streamlit as st
-from PIL import Image
 import libs.foxutils.utils.core_utils as core_utils
-from emia_utils.database_utils import check_connection, connect, USES_FIREBASE
-from emia_utils.process_utils import prepare_features_for_vehicle_counts
-from emia_utils import database_utils
-from google.cloud import firestore
-from libs.foxutils.utils.display_and_plot import plot_markers_on_map
-from streamlit_folium import folium_static
-from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, CAMERA_INFO_PATH, \
-    camera_id_key_name, CAMERA_INFO_TABLE_NAME
-from utils.map_utils import print_camera_locations
-
 logger = core_utils.get_logger("emia.common")
-HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
-HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
-
-SHOW_ANOMALY_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_label"]))
-SHOW_ANOMALY_GENERAL_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_general_label"]))
-SHOW_WEATHER_LABEL = bool(eval(core_utils.settings["WEATHER_DETECTION"]["show_weather_label"]))
-SHOW_WETNESS_LABEL = bool(eval(core_utils.settings["WETNESS_DETECTION"]["show_wetness_label"]))
-SHOW_VEHICLE_FORECAST_GRAPH = bool(eval(core_utils.settings["VEHICLE_FORECASTING"]["show_vehicle_forecast_graph"]))
 
 
 def set_value(key, value, reset=False):
@@ -41,6 +18,7 @@ def initialize_value(key, value):
 
 def initialize_session_state():
     initialize_value("is_running", False)
+    initialize_value("active_connection", False)
     initialize_value("conn", None)
     initialize_value("firebase_db", None)
     initialize_value("target_dashcam", None)
@@ -48,24 +26,45 @@ def initialize_session_state():
     initialize_value("loop", None)
 
 
-@st.cache_resource
-def init_connection():
-    import socket
-    hostname = socket.gethostname()
-    IPAddr = socket.gethostbyname(hostname)
-    logger.info(f"Your Computer Name is: {hostname} and IP Address is:{IPAddr}")
+from emia_utils.database_utils import USES_FIREBASE, init_connection
+from emia_utils import database_utils
+from utils.weather_detection_utils import weather_dict, weather_description_dict
 
-    conn_ = connect()
-    logger.info(f"Streamlit connect: DB Experimental connection is {conn_}")
-    check_connection(conn_)
-    return conn_
+def run_init_conenction():
+    st.session_state.active_connection = False
+    if USES_FIREBASE:
+        st.session_state.firebase_db = database_utils.init_firebase()
+        logger.info(f"Firebase connect: Connecting to {st.session_state.firebase_db}")
+        if st.session_state.firebase_db is not None:
+            st.session_state.active_connection = True
+    else:
+        st.session_state.conn = init_connection()
+        if st.session_state.conn is not None:
+            st.session_state.active_connection = True
 
+run_init_conenction()
 
-if USES_FIREBASE:
-    st.session_state.firebase_db = database_utils.init_firebase()
-    logger.info(f"Firebase connect: Connecting to {st.session_state.firebase_db}")
-else:
-    st.session_state.conn = init_connection()
+from datetime import timedelta
+from os.path import join as pathjoin
+import pandas as pd
+from PIL import Image
+from emia_utils.process_utils import prepare_features_for_vehicle_counts
+from google.cloud import firestore
+from libs.foxutils.utils.display_and_plot import plot_markers_on_map
+from streamlit_folium import folium_static
+from utils.configuration import DEFAULT_DATASET_DIR, DEFAULT_IMAGE_FILE, CAMERA_INFO_PATH, \
+    camera_id_key_name, CAMERA_INFO_TABLE_NAME, datetime_key_name, anomaly_type_key_name, weather_type_key_name, \
+    wetness_type_key_name, IMAGE_ANALYSIS_TABLE_NAME, VEHICLE_COUNTS_TABLE_NAME, WEATHER_TABLE_NAME, DASHCAM_TABLE_NAME
+from utils.map_utils import print_camera_locations
+
+HISTORY_STEP = int(core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step"])
+HISTORY_STEP_UNIT = core_utils.settings["VEHICLE_FORECASTING"]["total_vehicles_prediction_model_time_step_unit"]
+
+SHOW_ANOMALY_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_label"]))
+SHOW_ANOMALY_GENERAL_LABEL = bool(eval(core_utils.settings["ANOMALY_DETECTION"]["show_anomaly_general_label"]))
+SHOW_WEATHER_LABEL = bool(eval(core_utils.settings["WEATHER_DETECTION"]["show_weather_label"]))
+SHOW_WETNESS_LABEL = bool(eval(core_utils.settings["WETNESS_DETECTION"]["show_wetness_label"]))
+SHOW_VEHICLE_FORECAST_GRAPH = bool(eval(core_utils.settings["VEHICLE_FORECASTING"]["show_vehicle_forecast_graph"]))
 
 
 def get_expressway_camera_info_from_file():
@@ -103,10 +102,10 @@ def append_camera_location_data_to_database(location_df):
     if USES_FIREBASE:
         location_df.reset_index(inplace=True, drop=False)
         row_dict = location_df.iloc[0].to_dict()
-        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "dashcams",
-                                              ["datetime", "camera_id"])
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, DASHCAM_TABLE_NAME,
+                                              [datetime_key_name, camera_id_key_name])
     else:
-        database_utils.append_df_to_table(location_df, "dashcams", append_only_new=True,
+        database_utils.append_df_to_table(location_df, DASHCAM_TABLE_NAME, append_only_new=True,
                                           conn=st.session_state.conn, append_index=True)
 
 
@@ -114,15 +113,31 @@ def append_vehicle_counts_data_to_database(vehicle_counts_df):
     if USES_FIREBASE:
         vehicle_counts_df.reset_index(inplace=True, drop=False)
         row_dict = vehicle_counts_df.iloc[0].to_dict()
-        row_dict["id"] = core_utils.convert_datetime_to_string(row_dict["datetime"])
-        row_dict["datetime"] = row_dict["id"]
-        try:
-            database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, "vehicle_counts", "id")
-        except AttributeError as e:
-            logger.debug(f"Table vehicle_counts , row {row_dict}.")
-            logger.error(f"AttributeError: {e}")
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, VEHICLE_COUNTS_TABLE_NAME,
+                                              [datetime_key_name, camera_id_key_name])
     else:
         database_utils.append_df_to_table(vehicle_counts_df, "vehicle_counts", append_only_new=True,
+                                          conn=st.session_state.conn)
+
+def append_image_analysis_data_to_database(target_datetime, camera_id, anomaly_label, weather_label, wetness_label):
+
+    row_dict = {datetime_key_name: target_datetime,
+                camera_id_key_name: str(camera_id),
+                anomaly_type_key_name: {"Normal": 0, "Anomaly": 1}.get(anomaly_label),
+                weather_type_key_name: weather_dict.get(weather_label),
+                wetness_type_key_name: wetness_dict.get(wetness_label)
+                }
+    im_analysis_df = pd.DataFrame([row_dict])
+    im_analysis_df.set_index(datetime_key_name, inplace=True, drop=True)
+
+    if USES_FIREBASE:
+        im_analysis_df.reset_index(inplace=True, drop=False)
+        row_dict = im_analysis_df.iloc[0].to_dict()
+        database_utils.insert_row_to_firebase(st.session_state.firebase_db, row_dict, IMAGE_ANALYSIS_TABLE_NAME,
+                                              [datetime_key_name, camera_id_key_name])
+
+    else:
+        database_utils.append_df_to_table(im_analysis_df, IMAGE_ANALYSIS_TABLE_NAME, append_only_new=True,
                                           conn=st.session_state.conn)
 
 
@@ -130,19 +145,23 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
     batch_size = 32
 
     if USES_FIREBASE:
-        current_date = core_utils.convert_datetime_to_string(current_date)
+
+        # Values for col datetime are returned as datetime objects
         params = {"where": [["datetime", "<=", current_date]],
                   "order_by": ["datetime", firestore.Query.ASCENDING],
                   "limit": batch_size}
         df_weather = database_utils.read_table_with_select("weather", params, st.session_state.firebase_db)
-        print(df_weather.iloc[0:5])
+        df_weather = df_weather.iloc[::-1]
+        df_weather['datetime'] = [x.strftime("%Y-%m-%dT%H:%M:%SZ") for x in df_weather['datetime']]
 
+        # Values for col datetime are returned as strings
+        current_date = core_utils.convert_datetime_to_string(current_date)
         params = {"where": [["datetime", "<=", current_date],
                             [camera_id_key_name, "==", str(camera_id)]],
                   "order_by": ["datetime", firestore.Query.ASCENDING],
                   "limit": batch_size}
         df_vehicles = database_utils.read_table_with_select("vehicle_counts", params, st.session_state.firebase_db)
-        print(df_vehicles.iloc[0:5])
+
     else:
         params = [["datetime", "<=", database_utils.enclose_in_quotes(current_date)]]
         fetch_top = "\nORDER BY datetime DESC\nFETCH FIRST " + str(batch_size) + " ROWS ONLY"
@@ -156,8 +175,10 @@ def read_vehicle_forecast_data_from_database(current_date, camera_id, history_le
 
     latest_weather_info = df_weather.iloc[0].copy()
     df_features = prepare_features_for_vehicle_counts(df_vehicles, df_weather, dropna=True,
-                                                      include_weather_description=True)
+                                                      include_weather_description=True, weather_dict=weather_dict,
+                                                      weather_description_dict=weather_description_dict)
     df_features = df_features.iloc[-history_length:]
+
     # logger.debug(f"Recovered features for vehicle forecasting: {df_features}")
     return df_features, latest_weather_info
 
@@ -241,6 +262,7 @@ def present_results(container_placeholder, outputs, forecast_step=HISTORY_STEP):
                     vf_df = vf_df[["total_vehicles"]]
                     vf_df.insert(loc=len(vf_df.columns), column="Predicted Vehicle Count", value=[None] * len(vf_df))
                     vf_df.rename(columns={"total_vehicles": "Measured Vehicle Count"}, inplace=True)
+                    vf_df.set_index(pd.to_datetime(vf_df.index), inplace=True)
                     pred_datetime = vf_df.index[-1] + timedelta(minutes=forecast_step)
                     if HISTORY_STEP_UNIT != "minutes":
                         raise NotImplementedError("Only minutes are supported for now.")

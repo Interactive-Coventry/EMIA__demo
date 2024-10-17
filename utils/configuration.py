@@ -7,7 +7,7 @@ DEFAULT_CAMERA_ID = "1703"
 CAMERA_INFO_TABLE_NAME = "camera_specs"
 DASHCAM_TABLE_NAME = "dashcam"
 VEHICLE_COUNTS_TABLE_NAME = "vehicle_counts"
-WEATHER_TABLE_NAME= "weather"
+WEATHER_TABLE_NAME = "weather"
 BUS_ARRIVAL_TABLE_NAME = "bus_arrival"
 IMAGE_ANALYSIS_TABLE_NAME = "image_analysis"
 
@@ -17,6 +17,9 @@ camera_id_key_name = "camera_id"
 latitude_key_name = "lat"
 longitude_key_name = "lng"
 datetime_key_name = "datetime"
+anomaly_type_key_name = "anomaly_type"
+weather_type_key_name = "weather_type"
+wetness_type_key_name = "wetness_type"
 
 camera_types = {0: "Expressway CCTV", 1: "Dashcam"}
 
